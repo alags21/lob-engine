@@ -30,7 +30,7 @@ else()
   endif()
 endif()
 
-add_library(lob src/version.cpp)
+add_library(lob src/version.cpp src/order_book.cpp)
 target_include_directories(lob PUBLIC include)
 target_link_libraries(lob PRIVATE lob_options)
 
