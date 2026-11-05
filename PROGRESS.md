@@ -2,7 +2,7 @@
 
 | Stage | Scope | Status | PR |
 |---|---|---|---|
-| 0 | Scaffold, CI | in review | PR pending |
+| 0 | Scaffold, CI | in review | #1 |
 | 1 | Core book | not started | |
 | 2 | Correctness harness | not started | |
 | 3 | Performance | not started | |
