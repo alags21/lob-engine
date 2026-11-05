@@ -29,6 +29,24 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Differential fuzz (Release, 1.5M ops, seeds printed)
+        if: matrix.build_type == 'Release'
+        run: |
+          mkdir -p fuzz-out
+          build/tests/lob_fuzz --seed 1 --ops 500000 --runs 2 --record fuzz-out
+          build/tests/lob_fuzz --seed $((100000 + GITHUB_RUN_NUMBER)) --ops 500000 --record fuzz-out
+      - name: Differential fuzz (Debug, invariants checked after every op)
+        if: matrix.build_type == 'Debug'
+        run: |
+          mkdir -p fuzz-out
+          build/tests/lob_fuzz --seed 1 --ops 100000 --check-every 1 --record fuzz-out
+      - name: Upload failing op logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-fail-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: fuzz-out/
+          if-no-files-found: ignore
 
   sanitizers:
     name: ASan + UBSan
@@ -45,3 +63,14 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Differential fuzz under ASan+UBSan
+        run: |
+          mkdir -p fuzz-out
+          build/tests/lob_fuzz --seed 1 --ops 200000 --check-every 1 --record fuzz-out
+      - name: Upload failing op logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-fail-sanitizers
+          path: fuzz-out/
+          if-no-files-found: ignore

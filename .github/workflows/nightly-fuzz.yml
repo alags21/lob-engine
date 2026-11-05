@@ -1,0 +1,41 @@
+name: Nightly fuzz
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      ops:
+        description: "Ops per seed"
+        default: "5000000"
+      runs:
+        description: "Number of seeds"
+        default: "10"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev
+      - name: Build (Release)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLOB_BUILD_BENCH=OFF
+          cmake --build build --target lob_fuzz
+      - name: Fuzz with date-derived seeds
+        run: |
+          mkdir -p fuzz-out
+          SEED=$(date -u +%Y%m%d)00
+          echo "first seed: $SEED"
+          build/tests/lob_fuzz --seed $SEED --ops ${{ inputs.ops || '5000000' }} --runs ${{ inputs.runs || '10' }} --record fuzz-out | tee fuzz-out/summary.txt
+      - name: Upload failing op logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-fuzz-fail
+          path: fuzz-out/
+          if-no-files-found: ignore
