@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 0 | Scaffold, CI | in review (CI green) | #1 |
 | 1 | Core book | in review (CI green) | #2 |
-| 2 | Correctness harness | in review | PR pending |
+| 2 | Correctness harness | in review (CI green) | #3 |
 | 3 | Performance | not started | |
 | 4 | Concurrency | not started | |
 | 5 | Replay and visualizer | not started | |
@@ -34,8 +34,13 @@ op), ASan+UBSan job (200k ops), and a scheduled nightly workflow (`nightly-fuzz.
 Local fuzz run, `docs/results/fuzz_local_stage2.txt` (MSVC 14.50, checked build, state checked
 every 16 ops): seeds 1, 2, 3 x 1,000,000 ops = 3,000,000 ops, 4,601,135 events emitted, 1,301,514
 trades, 0 mismatches, largest resting book 4,928 orders, 178.9 s wall (includes the O(n) reference
-model; this is not a throughput benchmark). CI numbers will be added from the Actions logs once the
-runs finish. Fuzzing found no bug in the Stage 1 book.
+model; this is not a throughput benchmark). Fuzzing found no bug in the Stage 1 book.
+
+CI fuzz results (Actions run 42132275051 on PR #3, taken from the job logs, all passed with 0
+mismatches): gcc and clang Release each ran seeds 1, 2 (500,000 ops each, 1,530,900 events,
+430,010 trades) and seed 100005 (500,000 ops, 764,848 events, 214,644 trades), i.e. 1.5M ops per
+compiler, in about 1.1-3.5 s per command. Debug (gcc, clang): seed 1, 100,000 ops, state and
+invariants checked every op, 15-21 s. ASan+UBSan: seed 1, 200,000 ops, 216 s.
 
 ## Next
 Stage 3: performance (profile-driven data structure work, benchmark harness with histograms,
