@@ -3,7 +3,7 @@
 | Stage | Scope | Status | PR |
 |---|---|---|---|
 | 0 | Scaffold, CI | in review (CI green) | #1 |
-| 1 | Core book | in review | PR pending |
+| 1 | Core book | in review | #2 |
 | 2 | Correctness harness | not started | |
 | 3 | Performance | not started | |
 | 4 | Concurrency | not started | |
