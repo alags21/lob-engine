@@ -1,6 +1,8 @@
 #include "lob/order_book.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <iterator>
 #include <utility>
 
@@ -13,6 +15,17 @@ bool crosses(Side side, std::optional<Price> limit, Price level_price) {
   if (!limit) return true;
   return side == Side::Buy ? level_price <= *limit : level_price >= *limit;
 }
+
+// Runs OrderBook::validate() when the owning public call returns (debug builds only).
+struct DebugCheckGuard {
+#ifndef NDEBUG
+  const OrderBook& book;
+  explicit DebugCheckGuard(const OrderBook& b) : book(b) {}
+  ~DebugCheckGuard() { book.debug_check_public(); }
+#else
+  explicit DebugCheckGuard(const OrderBook&) {}
+#endif
+};
 
 Event make_reject(OrderId id, RejectReason r) {
   Event e;
@@ -27,6 +40,7 @@ Event make_reject(OrderId id, RejectReason r) {
 OrderBook::OrderBook(EventHandler handler) : handler_(std::move(handler)) {}
 
 RejectReason OrderBook::submit(const NewOrder& o) {
+  DebugCheckGuard guard(*this);
   auto reject = [&](RejectReason r) {
     emit(make_reject(o.id, r));
     return r;
@@ -76,6 +90,7 @@ RejectReason OrderBook::submit(const NewOrder& o) {
 }
 
 RejectReason OrderBook::cancel(OrderId id) {
+  DebugCheckGuard guard(*this);
   auto it = index_.find(id);
   if (it == index_.end()) {
     emit(make_reject(id, RejectReason::UnknownOrder));
@@ -96,6 +111,7 @@ RejectReason OrderBook::cancel(OrderId id) {
 }
 
 RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
+  DebugCheckGuard guard(*this);
   auto it = index_.find(id);
   if (it == index_.end()) {
     emit(make_reject(id, RejectReason::UnknownOrder));
@@ -221,6 +237,42 @@ void OrderBook::erase_resting(const Locator& loc) {
   } else {
     remove(asks_);
   }
+}
+
+void OrderBook::debug_check_public() const {
+  const std::string why = validate();
+  if (!why.empty()) {
+    std::fprintf(stderr, "lob: invariant violated: %s\n", why.c_str());
+    std::abort();
+  }
+}
+
+std::string OrderBook::validate() const {
+  std::size_t orders = 0;
+  auto check_side = [&](const auto& book, Side side) -> std::string {
+    for (const auto& [price, lvl] : book) {
+      if (price <= 0) return "non-positive level price";
+      if (lvl.queue.empty()) return "empty level present at " + std::to_string(price);
+      Qty sum = 0;
+      for (auto it = lvl.queue.begin(); it != lvl.queue.end(); ++it) {
+        if (it->qty <= 0) return "non-positive resting qty, order " + std::to_string(it->id);
+        sum += it->qty;
+        ++orders;
+        auto idx = index_.find(it->id);
+        if (idx == index_.end()) return "resting order missing from index: " + std::to_string(it->id);
+        if (idx->second.side != side || idx->second.price != price || idx->second.it != it)
+          return "index locator mismatch for order " + std::to_string(it->id);
+      }
+      if (sum != lvl.total) return "level total mismatch at " + std::to_string(price);
+    }
+    return {};
+  };
+  if (auto e = check_side(bids_, Side::Buy); !e.empty()) return e;
+  if (auto e = check_side(asks_, Side::Sell); !e.empty()) return e;
+  if (orders != index_.size()) return "index size differs from resting order count";
+  if (!bids_.empty() && !asks_.empty() && bids_.begin()->first >= asks_.begin()->first)
+    return "crossed or locked book";
+  return {};
 }
 
 std::optional<Price> OrderBook::best_bid() const {
