@@ -16,3 +16,11 @@ gtest_discover_tests(lob_tests)
 
 add_executable(lob_fuzz fuzz/lob_fuzz_main.cpp)
 target_link_libraries(lob_fuzz PRIVATE lob_fuzzlib lob_options)
+
+# TSan negative control (off by default): the queue with relaxed hand-off orderings, which TSan must flag.
+option(LOB_RACY_DEMO "Build the deliberately racy SPSC demo used to check that TSan reports it" OFF)
+if(LOB_RACY_DEMO)
+  add_executable(lob_racy_demo racy_demo.cpp)
+  target_link_libraries(lob_racy_demo PRIVATE lob lob_options)
+  target_compile_definitions(lob_racy_demo PRIVATE LOB_SPSC_RACY_FOR_TSAN_DEMO=1)
+endif()

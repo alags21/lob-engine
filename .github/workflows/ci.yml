@@ -110,3 +110,12 @@ jobs:
           for q in mutex-book mutex-cv-queue spsc spsc-unpadded; do
             build/bench/lob_mt_bench --queue $q --workload balanced --ops 20000 --reps 1 --rate 100000 --out /tmp/tsan_$q.json
           done
+      - name: Negative control, TSan must flag a deliberately racy queue
+        run: |
+          cmake -S . -B build-racy -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLOB_TSAN=ON -DLOB_RACY_DEMO=ON -DLOB_BUILD_BENCH=OFF -DLOB_BUILD_TOOLS=OFF -DCMAKE_CXX_COMPILER=clang++
+          cmake --build build-racy --target lob_racy_demo
+          if build-racy/tests/lob_racy_demo > racy.log 2>&1; then
+            echo "TSan did NOT report the deliberate race"; cat racy.log; exit 1
+          fi
+          grep -q "ThreadSanitizer: data race" racy.log
+          echo "TSan reported the deliberate race as expected:"; grep -m3 "ThreadSanitizer" racy.log

@@ -54,6 +54,17 @@ inline constexpr std::size_t kCacheLine = 64;
 
 namespace detail {
 
+// TEST-ONLY: building with LOB_SPSC_RACY_FOR_TSAN_DEMO downgrades the hand-off orderings to
+// relaxed, which makes the queue racy on purpose. It exists solely so CI can prove that
+// ThreadSanitizer reports the race (see tests/racy_demo.cpp). Never define it in a real build.
+#ifdef LOB_SPSC_RACY_FOR_TSAN_DEMO
+inline constexpr std::memory_order kHandoffLoad = std::memory_order_relaxed;
+inline constexpr std::memory_order kHandoffStore = std::memory_order_relaxed;
+#else
+inline constexpr std::memory_order kHandoffLoad = std::memory_order_acquire;
+inline constexpr std::memory_order kHandoffStore = std::memory_order_release;
+#endif
+
 struct PaddedIndices {
   alignas(kCacheLine) std::atomic<std::size_t> tail{0};  // written by producer
   std::size_t cached_head = 0;                            // producer-private
@@ -96,11 +107,11 @@ class SpscQueue {
   bool try_push(const T& v) noexcept {
     const std::size_t t = ix_.tail.load(std::memory_order_relaxed);
     if (t - ix_.cached_head == capacity_) {
-      ix_.cached_head = ix_.head.load(std::memory_order_acquire);
+      ix_.cached_head = ix_.head.load(detail::kHandoffLoad);
       if (t - ix_.cached_head == capacity_) return false;
     }
     buf_[t & mask_] = v;
-    ix_.tail.store(t + 1, std::memory_order_release);
+    ix_.tail.store(t + 1, detail::kHandoffStore);
     return true;
   }
 
@@ -108,11 +119,11 @@ class SpscQueue {
   bool try_pop(T& out) noexcept {
     const std::size_t h = ix_.head.load(std::memory_order_relaxed);
     if (h == ix_.cached_tail) {
-      ix_.cached_tail = ix_.tail.load(std::memory_order_acquire);
+      ix_.cached_tail = ix_.tail.load(detail::kHandoffLoad);
       if (h == ix_.cached_tail) return false;
     }
     out = buf_[h & mask_];
-    ix_.head.store(h + 1, std::memory_order_release);
+    ix_.head.store(h + 1, detail::kHandoffStore);
     return true;
   }
 
