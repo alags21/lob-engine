@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Generate docs/PERFORMANCE.md and the generated blocks in README.md / PROGRESS.md / docs/DESIGN.md
+from bench/results/*.json. No number in those blocks is typed by hand.
+
+Step titles and kept/rejected status come from bench/results/steps.json (text only).
+Usage: python scripts/make_report.py [--check]   (--check exits 1 if files would change)
+"""
+import glob, json, os, re, sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RES = os.path.join(ROOT, "bench", "results")
+WORKLOADS = ["passive", "aggressive", "balanced"]
+
+
+def load():
+    data = {}
+    for f in sorted(glob.glob(os.path.join(RES, "*_*.json"))):
+        j = json.load(open(f))
+        data.setdefault(j["label"], {})[j["workload"]["name"]] = j
+    return data
+
+
+def mops(j):
+    return j["throughput_ops_per_sec"]["median"] / 1e6
+
+
+def row(label, title, status, j, base):
+    t = j["throughput_ops_per_sec"]
+    l = j["latency_ns"]
+    match = "yes" if j["checksum"] == base["checksum"] else "NO"
+    return (f"| {label} | {title} | {status} | {mops(j):.2f} ({t['cv_pct']:.1f}%) | "
+            f"{mops(j) / mops(base):.2f}x | {l['p50']['median']:.0f} | {l['p99']['median']:.0f} | "
+            f"{l['p99_9']['median']:.0f} | {l['max']['median']:.0f} | {j['allocations_per_op']:.3f} | {match} |")
+
+
+HEAD = ("| step | change | status | Mops/s median (CV) | vs baseline | p50 ns | p99 ns | p99.9 ns | max ns | "
+        "allocs/op | same events as baseline |\n|---|---|---|---|---|---|---|---|---|---|---|")
+
+
+def tables(data, steps):
+    out = []
+    labels = sorted(data)
+    base_label = labels[0]
+    for wl in WORKLOADS:
+        if wl not in data[base_label]:
+            continue
+        base = data[base_label][wl]
+        w = base["workload"]
+        out.append(f"### Workload `{wl}`\n")
+        out.append(f"{w['submit_pct']}% submit / {w['cancel_pct']}% cancel / {w['modify_pct']}% modify targets, "
+                   f"{w['aggressive_pct']}% of submits aggressive, book target {w['book_target']} orders, "
+                   f"{w['ops']:,} ops, seed {w['seed']}. Realised: {w['realised']['submits']:,} submits, "
+                   f"{w['realised']['cancels']:,} cancels, {w['realised']['modifies']:,} modifies; "
+                   f"{w['trades']:,} trades; {w['final_resting_orders']:,} orders resting at the end.\n")
+        out.append(HEAD)
+        for lab in labels:
+            if wl not in data[lab]:
+                continue
+            s = steps.get(lab, {})
+            out.append(row(lab, s.get("title", ""), s.get("status", ""), data[lab][wl], base))
+        out.append("")
+    return "\n".join(out)
+
+
+def env_block(data):
+    j = data[sorted(data)[0]][WORKLOADS[0]]
+    e = j["environment"]
+    loads = sorted({x["environment"]["cpu_load_percent_before_run"] for d in data.values() for x in d.values()})
+    shas = sorted({f"{lab}: {d[WORKLOADS[0]]['commit']}" for lab, d in data.items()})
+    return "\n".join([
+        f"- CPU: {e['cpu']} ({e['logical_cores']} logical cores)",
+        f"- OS: {e['os']}",
+        f"- Compiler: {e['compiler']}",
+        f"- Flags: `{e['flags']}`",
+        f"- Thread pinned to logical CPU {e['pinned_cpu']}; process/thread priority raised on Windows",
+        f"- Clock: {e['clock']['name']}; {e['clock']['ticks_per_ns']:.3f} ticks/ns; timestamp-pair overhead "
+        f"{e['clock']['timestamp_pair_overhead_ns']:.0f} ns (not subtracted from latencies)",
+        f"- Machine state: {e['note']} CPU load measured just before each run ranged over: "
+        + ", ".join(f"{x}%" for x in loads),
+        f"- Method: {j['method']['model']}; {j['method']['warmup_reps']} untimed warmup repetition, "
+        f"{j['method']['measured_reps']} measured repetitions on a fresh book each; {j['method']['throughput']}; "
+        f"{j['method']['latency']}",
+        "- Commits benchmarked: " + "; ".join(shas),
+    ])
+
+
+def headline(data, steps):
+    labels = sorted(data)
+    base_label, final = labels[0], labels[-1]
+    # final = last label that is not a re-measurement of the baseline
+    for lab in reversed(labels):
+        if steps.get(lab, {}).get("status") != "re-measure":
+            final = lab
+            break
+    lines = ["| workload | baseline Mops/s | final Mops/s | speedup | baseline p99 ns | final p99 ns | baseline p99.9 ns | final p99.9 ns | allocs/op before -> after |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    for wl in WORKLOADS:
+        b, f = data[base_label].get(wl), data[final].get(wl)
+        if not b or not f:
+            continue
+        lines.append(f"| {wl} | {mops(b):.2f} | {mops(f):.2f} | {mops(f) / mops(b):.2f}x | "
+                     f"{b['latency_ns']['p99']['median']:.0f} | {f['latency_ns']['p99']['median']:.0f} | "
+                     f"{b['latency_ns']['p99_9']['median']:.0f} | {f['latency_ns']['p99_9']['median']:.0f} | "
+                     f"{b['allocations_per_op']:.3f} -> {f['allocations_per_op']:.3f} |")
+    return f"Baseline `{base_label}` vs `{final}` (medians of repeated runs; see docs/PERFORMANCE.md for method, variance and every step).\n\n" + "\n".join(lines)
+
+
+def replace_block(path, name, body):
+    s = open(path, newline="").read().replace("\r\n", "\n")
+    pat = re.compile(rf"(<!-- BEGIN GENERATED:{name} -->\n).*?(<!-- END GENERATED:{name} -->)", re.S)
+    if not pat.search(s):
+        return None
+    return pat.sub(lambda m: m.group(1) + body + "\n" + m.group(2), s)
+
+
+def main():
+    data = load()
+    if not data:
+        sys.exit("no results")
+    steps_path = os.path.join(RES, "steps.json")
+    steps = json.load(open(steps_path)) if os.path.exists(steps_path) else {}
+    bad = [(lab, wl) for lab, d in data.items() for wl, j in d.items()
+           if j["checksum"] != data[sorted(data)[0]][wl]["checksum"]]
+    perf = ("# Performance\n\n<!-- Generated by scripts/make_report.py from bench/results/*.json. Do not edit by hand. -->\n\n"
+            "## Environment\n\n" + env_block(data) + "\n\n"
+            "CI runners are shared and noisy; no CI timing is published here. CI only checks that the benchmark builds and runs.\n\n"
+            "## Results\n\n" + tables(data, steps) + "\n"
+            "Latency columns are medians across repetitions of per-op percentiles (overall, all op kinds). "
+            "CV is the coefficient of variation of throughput across repetitions. "
+            "\"Same events as baseline\" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.\n")
+    if bad:
+        perf += f"\n**WARNING: checksum mismatch vs baseline: {bad}**\n"
+    outputs = {os.path.join(ROOT, "docs", "PERFORMANCE.md"): perf}
+    head = headline(data, steps)
+    for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):
+        new = replace_block(os.path.join(ROOT, path), "perf", head)
+        if new is not None:
+            outputs[os.path.join(ROOT, path)] = new
+    changed = False
+    for p, content in outputs.items():
+        old = open(p, newline="").read().replace("\r\n", "\n") if os.path.exists(p) else None
+        if old != content:
+            changed = True
+            if "--check" not in sys.argv:
+                open(p, "w", newline="").write(content)
+                print("wrote", os.path.relpath(p, ROOT))
+    if "--check" in sys.argv and changed:
+        sys.exit(1)
+    if bad:
+        sys.exit("checksum mismatch: %s" % bad)
+
+
+if __name__ == "__main__":
+    main()

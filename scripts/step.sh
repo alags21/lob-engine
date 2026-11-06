@@ -15,8 +15,8 @@ Correctness gate before commit: ctest 73/73; lob_fuzz seeds 1-2 x 1M ops (state 
 seed 1 x 100k ops (state every op) on the checked build: no mismatches.
 
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" 2>&1 | grep -v warning || true
-cmd //c "scripts\win-build.cmd build-rel" 2>&1 | grep -E "error|tests passed"
-python scripts/run_bench.py --label "$LABEL" 2>&1 | grep -E "WARN"
+cmd //c "scripts\win-build.cmd build-rel" 2>&1 | grep -E "error|tests passed" || true
+python scripts/run_bench.py --label "$LABEL" 2>&1 | grep -E "WARN" || true
 python - "$LABEL" <<'PYEOF'
 import json,sys
 L=sys.argv[1]
