@@ -8,23 +8,37 @@
 - Flags: `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`
 - Pinning: producer on logical CPU 4, matching thread on logical CPU 6; detected 12 physical cores; used the first logical CPU of physical cores #2 and #3 (logical 4 and 6). On this CPU the physical cores are not necessarily identical (mixed core types possible); this was not checked.
 - Clock: rdtsc (lfence-serialised); producer and consumer timestamps compared across cores; 1.996 ticks/ns; timestamp-pair overhead 40 ns (not subtracted)
-- TSC checks: CPUID invariant-TSC bit = True; ping-pong between the two pinned cores (20000 rounds) estimated an offset of -40 ns with a minimum one-way hand-off of 90 ns. The estimate assumes symmetric delay, so treat cross-thread latencies as accurate to roughly that offset.
-- Machine state: Desktop machine, not isolated: normal background load, turbo/boost not controlled. CPU load measured before each run: 4.2%, 7%, 8.4%, 11.4%, 13.6%, 15%, 15.8%, 16%, 16.6%, 17.2%, 17.4%, 18%, 19.2%, 19.4%, 19.6%, 20%, 20.4%, 21%, 21.6%, 22.8%, 25%, 26%, 26.2%, 27%, 29.6%, 32.2%, 33%, 34.2%, 44.4%
+- TSC checks: CPUID invariant-TSC bit = True; ping-pong between the two pinned cores (20000 rounds) estimated an offset of -35 ns with a minimum one-way hand-off of 85 ns. The estimate assumes symmetric delay, so treat cross-thread latencies as accurate to roughly that offset.
+- Machine state: Desktop machine, not isolated: normal background load, turbo/boost not controlled. CPU load measured before each run: 10.4%, 11.6%, 13.6%, 13.8%, 14%, 14.2%, 14.6%, 14.8%, 15.4%, 15.6%, 16.2%, 16.4%, 16.6%, 17.2%, 17.4%, 18.2%, 18.4%, 19.6%, 19.8%, 20.2%, 20.8%, 21.2%, 21.6%, 22.6%, 23%, 25.6%, 27.8%
 - Method: 7 measured repetitions after 1 warmup; throughput mode: unpaced producer, queue saturates; ops / (first push to consumer done); latency mode: paced producer; latency = consumer completion - intended send time (coordinated-omission safe)
 
 CI runners are shared and noisy; no CI timing appears here. CI only builds and smoke-runs the benchmark and runs the sanitizers.
 
 ## Conclusions (computed from the data below)
 
-- `passive`: SPSC beats the mutex+condvar queue on throughput (1.71x); does NOT beat the mutex-protected book on throughput (0.62x); reaches 50% of the single-thread ceiling. Paced latency: p99 316308 ns vs 379883 ns for mutex+condvar; p99 316308 ns vs 129557 ns for mutex-book; p99 316308 ns vs 86418 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 5.59 vs unpadded 4.85 Mops/s (1.15x); padding helped (CV 4.8% / 6.4%).
-  - wait strategy throughput: spsc 5.59, spsc-yield 7.83, spsc-backoff 5.54 Mops/s; paced p99: spsc 316308 ns, spsc-yield 2318180 ns, spsc-backoff 686979 ns.
-- `aggressive`: SPSC beats the mutex+condvar queue on throughput (1.70x); does NOT beat the mutex-protected book on throughput (0.65x); reaches 48% of the single-thread ceiling. Paced latency: p99 275867 ns vs 407434 ns for mutex+condvar; p99 275867 ns vs 125140 ns for mutex-book; p99 275867 ns vs 168990 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 6.10 vs unpadded 5.24 Mops/s (1.16x); padding helped (CV 2.9% / 2.6%).
-  - wait strategy throughput: spsc 6.10, spsc-yield 9.04, spsc-backoff 6.41 Mops/s; paced p99: spsc 275867 ns, spsc-yield 1020450 ns, spsc-backoff 494543 ns.
-- `balanced`: SPSC beats the mutex+condvar queue on throughput (1.67x); does NOT beat the mutex-protected book on throughput (0.65x); reaches 51% of the single-thread ceiling. Paced latency: p99 424861 ns vs 479528 ns for mutex+condvar; p99 424861 ns vs 155833 ns for mutex-book; p99 424861 ns vs 76805 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 5.17 vs unpadded 4.59 Mops/s (1.13x); padding helped (CV 3.8% / 3.4%).
-  - wait strategy throughput: spsc 5.17, spsc-yield 6.95, spsc-backoff 5.41 Mops/s; paced p99: spsc 424861 ns, spsc-yield 2100050 ns, spsc-backoff 841322 ns.
+- `passive`: SPSC beats the mutex+condvar queue on throughput (1.64x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 49% of the single-thread ceiling. Paced latency, median: p50 355 ns vs 970 ns for mutex+condvar; p50 355 ns vs 226 ns for mutex-book; p50 355 ns vs 198 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 187261 ns and was behind schedule for 2.8% of ops. Paced p99 of the other rows: spsc 364113 ns, mutex+condvar 390838 ns, mutex-book 175498 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 6.02 vs 5.42 Mops/s (1.11x; CV 4.9% / 5.6%).
+  - padding ablation: padded 5.42 vs unpadded 4.86 Mops/s (1.12x); padding helped (CV 5.6% / 3.3%).
+  - wait strategy throughput: spsc 5.42, spsc-yield 8.13, spsc-backoff 5.70 Mops/s; paced p99: spsc 364113 ns, spsc-yield 1348150 ns, spsc-backoff 1341790 ns.
+- `aggressive`: SPSC beats the mutex+condvar queue on throughput (1.79x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 47% of the single-thread ceiling. Paced latency, median: p50 323 ns vs 980 ns for mutex+condvar; p50 323 ns vs 198 ns for mutex-book; p50 323 ns vs 164 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 113359 ns and was behind schedule for 2.4% of ops. Paced p99 of the other rows: spsc 371021 ns, mutex+condvar 463838 ns, mutex-book 167277 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 6.60 vs 6.05 Mops/s (1.09x; CV 4.1% / 2.0%).
+  - padding ablation: padded 6.05 vs unpadded 5.16 Mops/s (1.17x); padding helped (CV 2.0% / 6.4%).
+  - wait strategy throughput: spsc 6.05, spsc-yield 8.01, spsc-backoff 6.09 Mops/s; paced p99: spsc 371021 ns, spsc-yield 2154130 ns, spsc-backoff 441745 ns.
+- `balanced`: SPSC beats the mutex+condvar queue on throughput (1.68x); does NOT beat the mutex-protected book on throughput (0.64x); reaches 52% of the single-thread ceiling. Paced latency, median: p50 353 ns vs 988 ns for mutex+condvar; p50 353 ns vs 222 ns for mutex-book; p50 353 ns vs 186 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 141177 ns and was behind schedule for 2.9% of ops. Paced p99 of the other rows: spsc 412628 ns, mutex+condvar 1893520 ns, mutex-book 148974 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 5.89 vs 5.22 Mops/s (1.13x; CV 2.7% / 2.5%).
+  - padding ablation: padded 5.22 vs unpadded 4.66 Mops/s (1.12x); padding helped (CV 2.5% / 3.6%).
+  - wait strategy throughput: spsc 5.22, spsc-yield 7.01, spsc-backoff 5.32 Mops/s; paced p99: spsc 412628 ns, spsc-yield 2507160 ns, spsc-backoff 451755 ns.
+
+## Reading the results
+
+- The matching thread is the same single-threaded book in every row; only the hand-off differs. A queue cannot make one book faster than the single-thread ceiling: it adds a cache-line transfer per op, so the interesting question is how little each design adds, and what it buys (the producer is decoupled from matching and from its latency).
+- The mutex-book row has no hand-off at all, only an uncontended lock, so it is expected to beat any queue on raw throughput when there is a single producer. It is a lower bound on what locking costs, not a model of a contended lock.
+- Explanations for why a variant is faster or slower (coherence traffic, spinning against a full queue, slot straddling cache lines) are hypotheses consistent with the data; no hardware counters were collected to confirm them.
+- Wait strategy: yielding raised saturated throughput but had a clearly higher paced median than spinning, and spin-then-yield matched pure spinning at the median (see the p50 columns). `spsc` (spin) is the default because the goal is low hand-off latency on dedicated cores; it is the wrong choice when cores are shared, where spin-then-yield (`spsc-backoff`) is the safer option.
+- ThreadSanitizer runs only in Linux CI (clang); it is unavailable with MSVC, so the Windows machine has never run it. No deliberately broken queue was run through TSan to prove it would flag one (not done).
 
 ## Results
 
@@ -34,16 +48,17 @@ CI runners are shared and noisy; no CI timing appears here. CI only builds and s
 
 | queue | description | Mops/s median (CV) | vs single-thread | p50 ns | p99 ns | p99.9 ns | max ns | behind schedule |
 |---|---|---|---|---|---|---|---|---|
-| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 11.22 (2.8%) | 100% | 192 | 86418 | 565779 | 941820 | 0.023 |
-| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 8.96 (2.8%) | 80% | 220 | 129557 | 514096 | 759680 | 0.025 |
-| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.27 (4.5%) | 29% | 984 | 379883 | 1337380 | 2933060 | 0.024 |
-| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 5.59 (4.8%) | 50% | 359 | 316308 | 679038 | 1147790 | 0.046 |
-| spsc-yield | SPSC, wait strategy: yield | 7.83 (7.7%) | 70% | 606 | 2318180 | 10286800 | 12012400 | 0.020 |
-| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 5.54 (1.2%) | 49% | 351 | 686979 | 11165300 | 12807000 | 0.017 |
-| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 4.85 (6.4%) | 43% | 413 | 2055550 | 13663400 | 15348000 | 0.023 |
-| single-thread-nocb | Ceiling, event callback disabled | 12.05 (5.5%) | 107% | 186 | 98884 | 535004 | 756130 | 0.024 |
-| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 3.45 (4.6%) | 31% | 974 | 401421 | 2042170 | 3141800 | 0.028 |
-| spsc-nocb | SPSC, event callback disabled | 6.39 (2.9%) | 57% | 353 | 375769 | 1382030 | 2083190 | 0.019 |
+| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 11.15 (7.0%) | 100% | 198 | 187261 | 634341 | 992447 | 0.028 |
+| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 8.60 (6.8%) | 77% | 226 | 175498 | 505962 | 863880 | 0.058 |
+| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.32 (3.9%) | 30% | 970 | 390838 | 1225540 | 2939820 | 0.024 |
+| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 5.42 (5.6%) | 49% | 355 | 364113 | 7077430 | 8850890 | 0.020 |
+| spsc-yield | SPSC, wait strategy: yield | 8.13 (3.9%) | 73% | 586 | 1348150 | 3136570 | 3888740 | 0.017 |
+| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 5.70 (3.5%) | 51% | 349 | 1341790 | 13557200 | 15311400 | 0.048 |
+| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 4.86 (3.3%) | 44% | 425 | 417162 | 2113600 | 3662780 | 0.025 |
+| spsc-slot64 | SPSC variant: every slot padded and aligned to one cache line | 6.02 (4.9%) | 54% | 367 | 655309 | 13346000 | 14981500 | 0.026 |
+| single-thread-nocb | Ceiling, event callback disabled | 11.53 (6.6%) | 103% | 184 | 250845 | 888067 | 1667660 | 0.053 |
+| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 3.39 (4.2%) | 30% | 1018 | 6346550 | 15191700 | 16235800 | 0.059 |
+| spsc-nocb | SPSC, event callback disabled | 6.25 (3.6%) | 56% | 337 | 1801960 | 14252200 | 15897800 | 0.024 |
 
 ### Workload `aggressive`
 
@@ -51,16 +66,17 @@ CI runners are shared and noisy; no CI timing appears here. CI only builds and s
 
 | queue | description | Mops/s median (CV) | vs single-thread | p50 ns | p99 ns | p99.9 ns | max ns | behind schedule |
 |---|---|---|---|---|---|---|---|---|
-| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 12.68 (2.4%) | 100% | 164 | 168990 | 2198140 | 3894040 | 0.028 |
-| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 9.39 (9.5%) | 74% | 198 | 125140 | 654806 | 1443720 | 0.026 |
-| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.60 (3.8%) | 28% | 1028 | 407434 | 1548800 | 2751110 | 0.047 |
-| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 6.10 (2.9%) | 48% | 329 | 275867 | 622199 | 1248420 | 0.016 |
-| spsc-yield | SPSC, wait strategy: yield | 9.04 (7.5%) | 71% | 566 | 1020450 | 2632350 | 3653520 | 0.015 |
-| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 6.41 (6.3%) | 51% | 335 | 494543 | 2506230 | 3591330 | 0.048 |
-| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 5.24 (2.6%) | 41% | 377 | 351587 | 681483 | 1270630 | 0.018 |
-| single-thread-nocb | Ceiling, event callback disabled | 13.40 (2.7%) | 106% | 160 | 183907 | 535920 | 934797 | 0.056 |
-| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 3.66 (1.6%) | 29% | 966 | 368367 | 1206410 | 2262680 | 0.024 |
-| spsc-nocb | SPSC, event callback disabled | 7.33 (4.0%) | 58% | 315 | 321788 | 601598 | 935578 | 0.016 |
+| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 12.85 (2.8%) | 100% | 164 | 113359 | 497065 | 1008450 | 0.024 |
+| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 9.64 (3.9%) | 75% | 198 | 167277 | 592676 | 1266020 | 0.027 |
+| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.39 (6.4%) | 26% | 980 | 463838 | 1947360 | 3683390 | 0.030 |
+| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 6.05 (2.0%) | 47% | 323 | 371021 | 654411 | 975479 | 0.049 |
+| spsc-yield | SPSC, wait strategy: yield | 8.01 (6.1%) | 62% | 576 | 2154130 | 3847070 | 4701240 | 0.019 |
+| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 6.09 (2.3%) | 47% | 319 | 441745 | 1173500 | 2472010 | 0.022 |
+| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 5.16 (6.4%) | 40% | 381 | 332262 | 622021 | 1248530 | 0.017 |
+| spsc-slot64 | SPSC variant: every slot padded and aligned to one cache line | 6.60 (4.1%) | 51% | 339 | 323495 | 583329 | 1539760 | 0.017 |
+| single-thread-nocb | Ceiling, event callback disabled | 13.81 (4.6%) | 107% | 160 | 81444 | 509407 | 1184870 | 0.021 |
+| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 3.77 (3.9%) | 29% | 964 | 342014 | 1626620 | 3046830 | 0.022 |
+| spsc-nocb | SPSC, event callback disabled | 7.05 (4.2%) | 55% | 321 | 340355 | 595107 | 1055740 | 0.015 |
 
 ### Workload `balanced`
 
@@ -68,16 +84,17 @@ CI runners are shared and noisy; no CI timing appears here. CI only builds and s
 
 | queue | description | Mops/s median (CV) | vs single-thread | p50 ns | p99 ns | p99.9 ns | max ns | behind schedule |
 |---|---|---|---|---|---|---|---|---|
-| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 10.17 (2.4%) | 100% | 188 | 76805 | 500037 | 875754 | 0.021 |
-| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 8.00 (3.6%) | 79% | 222 | 155833 | 475410 | 690519 | 0.047 |
-| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.09 (2.8%) | 30% | 984 | 479528 | 2138160 | 3882070 | 0.027 |
-| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 5.17 (3.8%) | 51% | 357 | 424861 | 2177280 | 3961840 | 0.019 |
-| spsc-yield | SPSC, wait strategy: yield | 6.95 (4.4%) | 68% | 588 | 2100050 | 3235250 | 3879400 | 0.023 |
-| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 5.41 (2.8%) | 53% | 371 | 841322 | 3140360 | 4283360 | 0.025 |
-| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 4.59 (3.4%) | 45% | 425 | 422941 | 1585730 | 3291780 | 0.026 |
-| single-thread-nocb | Ceiling, event callback disabled | 10.72 (3.0%) | 105% | 180 | 141089 | 570296 | 1386440 | 0.026 |
-| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 2.72 (7.5%) | 27% | 1111 | 757355 | 4293130 | 5802750 | 0.035 |
-| spsc-nocb | SPSC, event callback disabled | 5.91 (4.1%) | 58% | 353 | 452229 | 916898 | 1637050 | 0.021 |
+| single-thread | Ceiling: no queue, one thread applies ops (Stage 3 book) | 9.95 (3.9%) | 100% | 186 | 141177 | 588183 | 1471910 | 0.029 |
+| mutex-book | Producer applies each op under a std::mutex (uncontended lock cost) | 8.19 (3.7%) | 82% | 222 | 148974 | 544311 | 1565630 | 0.027 |
+| mutex-cv-queue | Bounded mutex + condition-variable queue to a matching thread | 3.11 (4.5%) | 31% | 988 | 1893520 | 13427700 | 14953200 | 0.032 |
+| spsc | Lock-free SPSC ring, cache-line padded indices, spin wait (the design) | 5.22 (2.5%) | 52% | 353 | 412628 | 2410790 | 3795050 | 0.022 |
+| spsc-yield | SPSC, wait strategy: yield | 7.01 (4.6%) | 70% | 616 | 2507160 | 13013000 | 14796500 | 0.022 |
+| spsc-backoff | SPSC, wait strategy: spin 128 then yield | 5.32 (3.5%) | 53% | 353 | 451755 | 2194220 | 3151440 | 0.017 |
+| spsc-unpadded | SPSC ablation: head/tail/caches share one cache line | 4.66 (3.6%) | 47% | 417 | 597362 | 13982800 | 15680200 | 0.029 |
+| spsc-slot64 | SPSC variant: every slot padded and aligned to one cache line | 5.89 (2.7%) | 59% | 375 | 603586 | 14644300 | 16349200 | 0.026 |
+| single-thread-nocb | Ceiling, event callback disabled | 10.87 (4.4%) | 109% | 182 | 149978 | 586818 | 1651810 | 0.027 |
+| mutex-cv-queue-nocb | Mutex+condvar queue, event callback disabled | 3.13 (6.9%) | 31% | 978 | 487948 | 2421530 | 3946550 | 0.026 |
+| spsc-nocb | SPSC, event callback disabled | 5.95 (2.6%) | 60% | 343 | 491407 | 12920700 | 14711100 | 0.020 |
 
 Throughput mode: the producer pushes as fast as the queue admits, so the queue stays full and this measures sustained rate. Latency columns come from the paced run (medians over repetitions of per-op percentiles), measured from the intended send time to the matching thread finishing the op; for the two no-hand-off rows (single-thread, mutex-book) that is service time. "behind schedule" is the fraction of ops the producer reached more than one period late; a large value means the configuration cannot sustain the paced rate and its latency numbers describe overload. Max latency is dominated by OS scheduling interruptions.
 Every row's event stream + final book checksum was verified equal to the single-thread run before timing (the benchmark exits non-zero otherwise).

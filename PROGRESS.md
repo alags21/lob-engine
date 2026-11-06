@@ -6,7 +6,7 @@
 | 1 | Core book | in review (CI green) | #2 |
 | 2 | Correctness harness | in review (CI green) | #3 |
 | 3 | Performance | in review | PR pending |
-| 4 | Concurrency | in review | PR pending |
+| 4 | Concurrency | in review | #5 |
 | 5 | Replay and visualizer | not started | |
 | 6 | Polish | not started | |
 
@@ -70,25 +70,46 @@ Stage 4, producer thread -> queue -> matching thread (medians of repeated runs; 
 
 | workload | single-thread Mops/s | SPSC Mops/s | mutex+condvar Mops/s | mutex-book Mops/s | SPSC paced p99 ns | mutex+condvar paced p99 ns | mutex-book paced p99 ns |
 |---|---|---|---|---|---|---|---|
-| passive | 11.22 | 5.59 | 3.27 | 8.96 | 316308 | 379883 | 129557 |
-| aggressive | 12.68 | 6.10 | 3.60 | 9.39 | 275867 | 407434 | 125140 |
-| balanced | 10.17 | 5.17 | 3.09 | 8.00 | 424861 | 479528 | 155833 |
+| passive | 11.15 | 5.42 | 3.32 | 8.60 | 364113 | 390838 | 175498 |
+| aggressive | 12.85 | 6.05 | 3.39 | 9.64 | 371021 | 463838 | 167277 |
+| balanced | 9.95 | 5.22 | 3.11 | 8.19 | 412628 | 1893520 | 148974 |
 
-- `passive`: SPSC beats the mutex+condvar queue on throughput (1.71x); does NOT beat the mutex-protected book on throughput (0.62x); reaches 50% of the single-thread ceiling. Paced latency: p99 316308 ns vs 379883 ns for mutex+condvar; p99 316308 ns vs 129557 ns for mutex-book; p99 316308 ns vs 86418 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 5.59 vs unpadded 4.85 Mops/s (1.15x); padding helped (CV 4.8% / 6.4%).
-  - wait strategy throughput: spsc 5.59, spsc-yield 7.83, spsc-backoff 5.54 Mops/s; paced p99: spsc 316308 ns, spsc-yield 2318180 ns, spsc-backoff 686979 ns.
-- `aggressive`: SPSC beats the mutex+condvar queue on throughput (1.70x); does NOT beat the mutex-protected book on throughput (0.65x); reaches 48% of the single-thread ceiling. Paced latency: p99 275867 ns vs 407434 ns for mutex+condvar; p99 275867 ns vs 125140 ns for mutex-book; p99 275867 ns vs 168990 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 6.10 vs unpadded 5.24 Mops/s (1.16x); padding helped (CV 2.9% / 2.6%).
-  - wait strategy throughput: spsc 6.10, spsc-yield 9.04, spsc-backoff 6.41 Mops/s; paced p99: spsc 275867 ns, spsc-yield 1020450 ns, spsc-backoff 494543 ns.
-- `balanced`: SPSC beats the mutex+condvar queue on throughput (1.67x); does NOT beat the mutex-protected book on throughput (0.65x); reaches 51% of the single-thread ceiling. Paced latency: p99 424861 ns vs 479528 ns for mutex+condvar; p99 424861 ns vs 155833 ns for mutex-book; p99 424861 ns vs 76805 ns for single-thread (service time, no hand-off).
-  - padding ablation: padded 5.17 vs unpadded 4.59 Mops/s (1.13x); padding helped (CV 3.8% / 3.4%).
-  - wait strategy throughput: spsc 5.17, spsc-yield 6.95, spsc-backoff 5.41 Mops/s; paced p99: spsc 424861 ns, spsc-yield 2100050 ns, spsc-backoff 841322 ns.
+- `passive`: SPSC beats the mutex+condvar queue on throughput (1.64x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 49% of the single-thread ceiling. Paced latency, median: p50 355 ns vs 970 ns for mutex+condvar; p50 355 ns vs 226 ns for mutex-book; p50 355 ns vs 198 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 187261 ns and was behind schedule for 2.8% of ops. Paced p99 of the other rows: spsc 364113 ns, mutex+condvar 390838 ns, mutex-book 175498 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 6.02 vs 5.42 Mops/s (1.11x; CV 4.9% / 5.6%).
+  - padding ablation: padded 5.42 vs unpadded 4.86 Mops/s (1.12x); padding helped (CV 5.6% / 3.3%).
+  - wait strategy throughput: spsc 5.42, spsc-yield 8.13, spsc-backoff 5.70 Mops/s; paced p99: spsc 364113 ns, spsc-yield 1348150 ns, spsc-backoff 1341790 ns.
+- `aggressive`: SPSC beats the mutex+condvar queue on throughput (1.79x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 47% of the single-thread ceiling. Paced latency, median: p50 323 ns vs 980 ns for mutex+condvar; p50 323 ns vs 198 ns for mutex-book; p50 323 ns vs 164 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 113359 ns and was behind schedule for 2.4% of ops. Paced p99 of the other rows: spsc 371021 ns, mutex+condvar 463838 ns, mutex-book 167277 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 6.60 vs 6.05 Mops/s (1.09x; CV 4.1% / 2.0%).
+  - padding ablation: padded 6.05 vs unpadded 5.16 Mops/s (1.17x); padding helped (CV 2.0% / 6.4%).
+  - wait strategy throughput: spsc 6.05, spsc-yield 8.01, spsc-backoff 6.09 Mops/s; paced p99: spsc 371021 ns, spsc-yield 2154130 ns, spsc-backoff 441745 ns.
+- `balanced`: SPSC beats the mutex+condvar queue on throughput (1.68x); does NOT beat the mutex-protected book on throughput (0.64x); reaches 52% of the single-thread ceiling. Paced latency, median: p50 353 ns vs 988 ns for mutex+condvar; p50 353 ns vs 222 ns for mutex-book; p50 353 ns vs 186 ns for single-thread (no hand-off).
+  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 141177 ns and was behind schedule for 2.9% of ops. Paced p99 of the other rows: spsc 412628 ns, mutex+condvar 1893520 ns, mutex-book 148974 ns; differences at that level are not reliable evidence about the queues.
+  - one-slot-per-cache-line variant: 5.89 vs 5.22 Mops/s (1.13x; CV 2.7% / 2.5%).
+  - padding ablation: padded 5.22 vs unpadded 4.66 Mops/s (1.12x); padding helped (CV 2.5% / 3.6%).
+  - wait strategy throughput: spsc 5.22, spsc-yield 7.01, spsc-backoff 5.32 Mops/s; paced p99: spsc 412628 ns, spsc-yield 2507160 ns, spsc-backoff 451755 ns.
 <!-- END GENERATED:mt -->
 
+Stage 4: lock-free SPSC ring (`include/lob/spsc_queue.hpp`, acquire/release only, padded indices with
+cached remote index; ordering argument in the header and DESIGN.md), bounded mutex+condvar queue
+(`mutex_queue.hpp`), shared event/book checksum (`checksum.hpp`), queue unit + stress + pipeline
+tests (`tests/test_spsc.cpp`), multi-threaded benchmark `lob_mt_bench` (single-thread ceiling,
+mutex-protected book, mutex+condvar queue, SPSC with spin/yield/backoff wait, unpadded and
+slot-aligned SPSC variants; with and without the event callback), a TSan CI job, and
+`docs/CONCURRENCY.md` generated from `bench/results/stage4/*.json`. Every benchmark run first
+asserts that the multi-threaded event stream and final book checksum equal the single-thread run.
+
 ## Next
-Stage 4: concurrency (SPSC ring, mutex baselines, TSan job). Starts only after approval.
+Stage 5: replay and visualizer. Starts only after approval.
 
 ## Known gaps
+- Stage 4: tail latency (p99 and above) in the paced run is dominated by OS interference on this
+  non-isolated desktop (even the no-queue row shows it); only medians are a reliable queue comparison.
+- Stage 4: the two pinned cores are different physical cores but their core type (this CPU may mix
+  core types) and the TSC offset (estimated by ping-pong only) are not fully controlled.
+- Stage 4: TSan has not been run on Windows (unavailable) and was not shown to catch a deliberately
+  injected ordering bug; the book itself is single-threaded and not thread-safe.
 - Reference model and `OrderBook` share one author and one spec; a misreading of the spec would be
   replicated in both. The hand-checked golden log and the unit tests are the independent check.
 - Fuzz prices are confined to a band of roughly 60-140 ticks, quantities to at most 120; extreme
