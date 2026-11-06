@@ -29,8 +29,7 @@ bool valid(const Payload& p, std::uint64_t expect_seq) {
 }
 
 void spin_for(unsigned n) {
-  for (volatile unsigned i = 0; i < n; i = i + 1) {
-  }
+  for (unsigned i = 0; i < n; ++i) std::atomic_signal_fence(std::memory_order_seq_cst);  // not optimised away
 }
 
 enum class Skew { None, SlowConsumer, SlowProducer };
