@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -25,7 +26,6 @@ class OrderBook {
   using EventHandler = std::function<void(const Event&)>;
 
   explicit OrderBook(EventHandler handler = {});
-  ~OrderBook();
   OrderBook(const OrderBook&) = delete;
   OrderBook& operator=(const OrderBook&) = delete;
 
@@ -92,6 +92,35 @@ class OrderBook {
     Qty total = 0;
     std::size_t count = 0;
   };
+  // Slab allocator for nodes: nodes are carved from fixed-size chunks and recycled through a free
+  // list, so steady-state submit/cancel/fill never calls the system allocator.
+  class NodePool {
+   public:
+    Node* acquire(OrderId id, Qty qty, Price price, Side side, Node* prev) {
+      Node* n = free_;
+      if (n) {
+        free_ = n->next;
+      } else {
+        if (used_ == kChunk || chunks_.empty()) {
+          chunks_.push_back(std::make_unique<Node[]>(kChunk));
+          used_ = 0;
+        }
+        n = &chunks_.back()[used_++];
+      }
+      *n = Node{id, qty, price, side, prev, nullptr};
+      return n;
+    }
+    void release(Node* n) {
+      n->next = free_;
+      free_ = n;
+    }
+
+   private:
+    static constexpr std::size_t kChunk = 4096;
+    std::vector<std::unique_ptr<Node[]>> chunks_;
+    std::size_t used_ = 0;
+    Node* free_ = nullptr;
+  };
   using BidMap = std::map<Price, Level, std::greater<Price>>;
   using AskMap = std::map<Price, Level>;
 
@@ -113,6 +142,7 @@ class OrderBook {
   BidMap bids_;
   AskMap asks_;
   std::unordered_map<OrderId, Node*> index_;
+  NodePool pool_;
   EventHandler handler_;
 };
 

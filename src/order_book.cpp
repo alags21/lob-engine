@@ -39,9 +39,6 @@ Event make_reject(OrderId id, RejectReason r) {
 
 OrderBook::OrderBook(EventHandler handler) : handler_(std::move(handler)) {}
 
-OrderBook::~OrderBook() {
-  for (auto& [id, n] : index_) delete n;
-}
 
 RejectReason OrderBook::submit(const NewOrder& o) {
   DebugCheckGuard guard(*this);
@@ -110,7 +107,7 @@ RejectReason OrderBook::cancel(OrderId id) {
   c.cancel = CancelReason::UserRequest;
   unlink(n);
   index_.erase(it);
-  delete n;
+  pool_.release(n);
   emit(c);
   return RejectReason::None;
 }
@@ -157,7 +154,7 @@ RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
   // Cancel/replace: priority lost; may now cross and trade as a taker.
   unlink(n);
   index_.erase(it);
-  delete n;
+  pool_.release(n);
   m.lost_priority = true;
   emit(m);
   const Qty left = match(id, side, new_price, new_qty);
@@ -196,7 +193,7 @@ Qty OrderBook::match_against(Book& opp, OrderId id, Side side, std::optional<Pri
         if (lvl.head) lvl.head->prev = nullptr;
         else lvl.tail = nullptr;
         --lvl.count;
-        delete maker;
+        pool_.release(maker);
       }
       emit(t);
     }
@@ -224,7 +221,7 @@ Qty OrderBook::available_for(Side side, std::optional<Price> limit, Qty need) co
 void OrderBook::rest(OrderId id, Side side, Price price, Qty qty) {
   auto place = [&](auto& book) {
     Level& lvl = book[price];
-    Node* n = new Node{id, qty, price, side, lvl.tail, nullptr};
+    Node* n = pool_.acquire(id, qty, price, side, lvl.tail);
     if (lvl.tail) lvl.tail->next = n;
     else lvl.head = n;
     lvl.tail = n;
