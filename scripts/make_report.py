@@ -105,6 +105,40 @@ def headline(data, steps):
     return f"Baseline `{base_label}` vs `{final}` (medians of repeated runs; see docs/PERFORMANCE.md for method, variance and every step).\n\n" + "\n".join(lines)
 
 
+def pcore_section(data):
+    """Supplementary check: baseline vs final re-run pinned to a higher-performance core (see bench/results/pcore)."""
+    files = sorted(glob.glob(os.path.join(RES, "pcore", "*.json")))
+    if not files:
+        return ""
+    pc = {}
+    for f in files:
+        j = json.load(open(f))
+        pc.setdefault(j["label"], {})[j["workload"]["name"]] = j
+    labs = sorted(pc)
+    base, fin = labs[0], labs[-1]
+    topo = os.path.join(RES, "cpu_topology.txt")
+    cls = {}
+    if os.path.exists(topo):
+        for line in open(topo):
+            m = re.match(r"logical\s+(\d+) core\s+(\d+) effclass (\d+)", line)
+            if m:
+                cls[int(m.group(1))] = int(m.group(3))
+    main_cpu = data[sorted(data)[0]][WORKLOADS[0]]["environment"]["pinned_cpu"]
+    pcpu = pc[base][WORKLOADS[0]]["environment"]["pinned_cpu"]
+    out = ["", "## Core-type check", "",
+           f"This CPU has mixed core types (see bench/results/cpu_topology.txt). The main results above were pinned to logical CPU {main_cpu}, "
+           f"which Windows reports as efficiency class {cls.get(main_cpu, '?')}; the highest class is {max(cls.values()) if cls else '?'}. "
+           f"As a check, the baseline and final binaries were re-run pinned to logical CPU {pcpu} (efficiency class {cls.get(pcpu, '?')}), "
+           "same workloads and method, each run once after the other (not interleaved with the main table):", "",
+           "| workload | baseline Mops/s (CV) | final Mops/s (CV) | speedup | baseline p99 ns | final p99 ns |", "|---|---|---|---|---|---|"]
+    for wl in WORKLOADS:
+        if wl in pc[base] and wl in pc[fin]:
+            b, f = pc[base][wl], pc[fin][wl]
+            out.append(f"| {wl} | {mops(b):.2f} ({b['throughput_ops_per_sec']['cv_pct']:.1f}%) | {mops(f):.2f} ({f['throughput_ops_per_sec']['cv_pct']:.1f}%) | "
+                       f"{mops(f) / mops(b):.2f}x | {b['latency_ns']['p99']['median']:.0f} | {f['latency_ns']['p99']['median']:.0f} |")
+    return "\n".join(out) + "\n"
+
+
 def replace_block(path, name, body):
     s = open(path, newline="").read().replace("\r\n", "\n")
     pat = re.compile(rf"(<!-- BEGIN GENERATED:{name} -->\n).*?(<!-- END GENERATED:{name} -->)", re.S)
@@ -131,6 +165,7 @@ def main():
             "\"Same events as baseline\" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.\n")
     if bad:
         perf += f"\n**WARNING: checksum mismatch vs baseline: {bad}**\n"
+    perf += pcore_section(data)
     outputs = {os.path.join(ROOT, "docs", "PERFORMANCE.md"): perf}
     head = headline(data, steps)
     for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):

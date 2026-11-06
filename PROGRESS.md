@@ -104,6 +104,10 @@ asserts that the multi-threaded event stream and final book checksum equal the s
 Stage 5: replay and visualizer. Starts only after approval.
 
 ## Known gaps
+- Core types: this CPU mixes two Windows efficiency classes. Stage 3 results were pinned to a
+  lower-class core; Stage 4 results to two cores of the higher class. A re-run of the Stage 3
+  baseline and final binaries on a higher-class core is in docs/PERFORMANCE.md ("Core-type check").
+  Core selection in the benchmarks is positional, not by class; it happened to land on the higher class for Stage 4.
 - Stage 4: tail latency (p99 and above) in the paced run is dominated by OS interference on this
   non-isolated desktop (even the no-queue row shows it); only medians are a reliable queue comparison.
 - Stage 4: the two pinned cores are different physical cores but their core type (this CPU may mix

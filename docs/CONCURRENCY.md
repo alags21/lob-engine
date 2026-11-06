@@ -6,7 +6,7 @@
 
 - CPU: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M        (24 logical cores); OS: Windows-11-10.0.26200-SP0
 - Flags: `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`
-- Pinning: producer on logical CPU 4, matching thread on logical CPU 6; detected 12 physical cores; used the first logical CPU of physical cores #2 and #3 (logical 4 and 6). On this CPU the physical cores are not necessarily identical (mixed core types possible); this was not checked.
+- Pinning: producer on logical CPU 4, matching thread on logical CPU 6; detected 12 physical cores; used the first logical CPU of physical cores #2 and #3 (logical 4 and 6). This CPU has mixed core types: Windows reports 2 efficiency classes class 0 on 16 logical CPUs, class 1 on 8 logical CPUs (higher class = higher performance; see bench/results/cpu_topology.txt). Producer CPU is class 1, matching-thread CPU is class 1; both are in the highest class, so the two threads ran on matching cores.
 - Clock: rdtsc (lfence-serialised); producer and consumer timestamps compared across cores; 1.996 ticks/ns; timestamp-pair overhead 40 ns (not subtracted)
 - TSC checks: CPUID invariant-TSC bit = True; ping-pong between the two pinned cores (20000 rounds) estimated an offset of -35 ns with a minimum one-way hand-off of 85 ns. The estimate assumes symmetric delay, so treat cross-thread latencies as accurate to roughly that offset.
 - Machine state: Desktop machine, not isolated: normal background load, turbo/boost not controlled. CPU load measured before each run: 10.4%, 11.6%, 13.6%, 13.8%, 14%, 14.2%, 14.6%, 14.8%, 15.4%, 15.6%, 16.2%, 16.4%, 16.6%, 17.2%, 17.4%, 18.2%, 18.4%, 19.6%, 19.8%, 20.2%, 20.8%, 21.2%, 21.6%, 22.6%, 23%, 25.6%, 27.8%

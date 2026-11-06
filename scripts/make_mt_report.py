@@ -104,6 +104,26 @@ def verdicts(d):
     return "\n".join(lines)
 
 
+def topology_note(e):
+    """Core-type facts parsed from bench/results/cpu_topology.txt (saved output of scripts/cpu_topology_win.cpp)."""
+    path = os.path.join(ROOT, "bench", "results", "cpu_topology.txt")
+    if not os.path.exists(path):
+        return "Core types were not checked."
+    cls = {}
+    for line in open(path):
+        m = re.match(r"logical\s+(\d+) core\s+(\d+) effclass (\d+)", line)
+        if m:
+            cls[int(m.group(1))] = int(m.group(3))
+    classes = sorted(set(cls.values()))
+    per = {c: sum(1 for v in cls.values() if v == c) for c in classes}
+    a, b = cls.get(e["producer_cpu"]), cls.get(e["consumer_cpu"])
+    return (f"This CPU has mixed core types: Windows reports {len(classes)} efficiency classes "
+            + ", ".join(f"class {c} on {per[c]} logical CPUs" for c in classes)
+            + f" (higher class = higher performance; see bench/results/cpu_topology.txt). Producer CPU is class {a}, matching-thread CPU is class {b}; "
+            + ("both are in the highest class, so the two threads ran on matching cores." if a == b == max(classes)
+               else "THEY DO NOT BOTH SIT IN THE HIGHEST CLASS."))
+
+
 def env_block(d):
     j = d["single-thread"][WORKLOADS[0]]
     e, c = j["environment"], j["environment"]["clock"]
@@ -111,8 +131,7 @@ def env_block(d):
     return "\n".join([
         f"- CPU: {e['cpu']} ({e['logical_cores']} logical cores); OS: {e['os']}",
         f"- Flags: `{e['flags']}`",
-        f"- Pinning: producer on logical CPU {e['producer_cpu']}, matching thread on logical CPU {e['consumer_cpu']}; {e['pinning']}. "
-        "On this CPU the physical cores are not necessarily identical (mixed core types possible); this was not checked.",
+        f"- Pinning: producer on logical CPU {e['producer_cpu']}, matching thread on logical CPU {e['consumer_cpu']}; {e['pinning']}. " + topology_note(e),
         f"- Clock: {c['name']}; {c['ticks_per_ns']:.3f} ticks/ns; timestamp-pair overhead {c['timestamp_pair_overhead_ns']:.0f} ns (not subtracted)",
         f"- TSC checks: CPUID invariant-TSC bit = {c['invariant_tsc_cpuid']}; ping-pong between the two pinned cores ({c['ping_pong_rounds']} rounds) estimated an offset of "
         f"{c['cross_core_offset_ns_estimate']:.0f} ns with a minimum one-way hand-off of {c['min_one_way_handoff_ns']:.0f} ns. The estimate assumes symmetric delay, so "
