@@ -4,7 +4,7 @@ add_library(lob_itchlib STATIC itch_validate.cpp itch_synth.cpp)
 target_include_directories(lob_itchlib PUBLIC .)
 target_link_libraries(lob_itchlib PUBLIC lob lob_reference PRIVATE lob_options)
 
-add_executable(lob_itch main.cpp)
+add_executable(lob_itch main.cpp bench.cpp)
 target_link_libraries(lob_itch PRIVATE lob_itchlib lob_options)
 if(ZLIB_FOUND)
   target_compile_definitions(lob_itch PRIVATE LOB_HAVE_ZLIB=1)

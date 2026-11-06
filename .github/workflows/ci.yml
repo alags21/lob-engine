@@ -153,3 +153,30 @@ jobs:
           node-version: '20'
       - name: Visualizer tests (mock canvas, fake DOM, static checks)
         run: node viz/test/viz_test.js
+
+  itch-synthetic:
+    name: ITCH pipeline (synthetic data only) and repository data guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev zlib1g-dev
+      - name: Repository data/size guard (no raw market data, no large files)
+        run: python3 scripts/check_repo_size.py
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLOB_BUILD_BENCH=OFF -DLOB_WERROR=ON
+          cmake --build build --target lob_itch lob_itch_tests
+      - name: ITCH unit tests
+        run: build/itch/lob_itch_tests
+      - name: Synthetic ITCH file through scan, validate (with reference model) and replay benchmark
+        run: |
+          build/itch/lob_itch synth --out /tmp/synth.itch --ops 20000 --symbols 3 --seed 5
+          gzip -f /tmp/synth.itch
+          build/itch/lob_itch scan --input /tmp/synth.itch.gz --json /tmp/scan.json
+          build/itch/lob_itch validate --input /tmp/synth.itch.gz --json /tmp/val.json --reference SYNA,SYNB,SYNC --compare-every 100
+          python3 scripts/check_itch_synthetic.py /tmp/val.json
+          build/itch/lob_itch bench --input /tmp/synth.itch.gz --symbols SYNA,SYNB,SYNC --reps 1 --json /tmp/bench.json

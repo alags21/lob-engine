@@ -21,56 +21,15 @@
 #include <string>
 #include <vector>
 
-#ifdef LOB_HAVE_ZLIB
-#include <zlib.h>
-#endif
-
 #include "itch_synth.hpp"
+#include "bench.hpp"
 #include "itch_validate.hpp"
 #include "lob/itch.hpp"
+#include "tool_io.hpp"
 
 using namespace lob::itch;
 
-namespace tool {
 
-struct FileSource {
-  std::FILE* f = nullptr;
-#ifdef LOB_HAVE_ZLIB
-  gzFile gz = nullptr;
-#endif
-  bool open(const std::string& path) {
-    const bool is_gz = path.size() > 3 && path.compare(path.size() - 3, 3, ".gz") == 0;
-    if (is_gz) {
-#ifdef LOB_HAVE_ZLIB
-      gz = gzopen(path.c_str(), "rb");
-      if (gz) gzbuffer(gz, 1 << 20);
-      return gz != nullptr;
-#else
-      std::fprintf(stderr, "built without zlib: cannot read .gz\n");
-      return false;
-#endif
-    }
-    f = std::fopen(path.c_str(), "rb");
-    return f != nullptr;
-  }
-  std::size_t read(void* dst, std::size_t n) {
-#ifdef LOB_HAVE_ZLIB
-    if (gz) {
-      const int k = gzread(gz, dst, static_cast<unsigned>(n));
-      return k < 0 ? 0 : static_cast<std::size_t>(k);
-    }
-#endif
-    return std::fread(dst, 1, n, f);
-  }
-  ~FileSource() {
-    if (f) std::fclose(f);
-#ifdef LOB_HAVE_ZLIB
-    if (gz) gzclose(gz);
-#endif
-  }
-};
-
-}  // namespace tool
 
 namespace {
 
@@ -193,6 +152,9 @@ int cmd_validate(const Args& a) {
   ValidateConfig cfg;
   cfg.reference_symbols = split_csv(a.get("reference"));
   cfg.compare_every = a.num("compare-every", 2000);
+  cfg.replace_reduction_keeps_priority = a.num("replace-keeps-priority", 0) != 0;
+  cfg.partial_cancel_loses_priority = a.num("x-loses-priority", 0) != 0;
+  cfg.only_symbols = split_csv(a.get("only"));
   const std::uint64_t max_messages = a.num("max-messages", 0);
   Validator v(cfg);
   FrameReader<tool::FileSource> fr(src);
@@ -227,7 +189,7 @@ int cmd_validate(const Args& a) {
   std::ostringstream extra;
   extra << ",\"decoded_messages\":" << n << ",\"unknown_type_messages_skipped\":" << unknown << ",\"malformed_messages\":" << malformed
         << ",\"truncated_final_frame\":" << (fr.truncated() ? "true" : "false") << ",\"validate_seconds_including_decompression\":" << secs
-        << ",\"compare_every\":" << cfg.compare_every << "}";
+        << ",\"compare_every\":" << cfg.compare_every << ",\"replace_reduction_keeps_priority\":" << (cfg.replace_reduction_keeps_priority ? "true" : "false") << "}";
   const std::string out = a.get("json");
   if (!out.empty()) write_file(out, json + extra.str());
   std::printf("validate: %llu messages in %.1f s\n", static_cast<unsigned long long>(n), secs);
@@ -254,6 +216,23 @@ int main(int argc, char** argv) {
   if (cmd == "synth") return cmd_synth(a);
   if (cmd == "scan") return cmd_scan(a);
   if (cmd == "validate") return cmd_validate(a);
+  if (cmd == "bench") {
+    BenchArgs b;
+    b.input = a.get("input");
+    b.json = a.get("json");
+    b.symbols = a.get("symbols");
+    b.label = a.get("label", "realdata");
+    b.commit = a.get("commit", "unknown");
+    b.os = a.get("os", "unknown");
+    b.flags = a.get("flags", "unknown");
+    b.note = a.get("note");
+    b.reps = a.num("reps", 7);
+    b.max_messages = a.num("max-messages", 0);
+    b.cpu = static_cast<int>(a.num("cpu", 0)) ;
+    if (!a.kv.count("cpu")) b.cpu = -1;
+    b.load = a.kv.count("load") ? std::atof(a.get("load").c_str()) : -1;
+    return run_bench(b);
+  }
   std::fprintf(stderr, "unknown command %s\n", cmd.c_str());
   return 2;
 }

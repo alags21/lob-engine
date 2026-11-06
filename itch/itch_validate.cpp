@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <sstream>
+#include <tuple>
+
+#include "lob/checksum.hpp"
 
 namespace lob::itch {
 
@@ -17,6 +20,12 @@ Stats& Stats::operator+=(const Stats& o) {
   }
   events_on_unbooked += o.events_on_unbooked;
   for (int k = 0; k < kViolationKinds; ++k) violation[k] += o.violation[k];
+  tax_ahead_all_odd += o.tax_ahead_all_odd; tax_ahead_has_round += o.tax_ahead_has_round;
+  tax_r_attributed += o.tax_r_attributed; tax_w_attributed += o.tax_w_attributed; tax_r_from_replace += o.tax_r_from_replace; tax_w_from_replace += o.tax_w_from_replace;
+  tax_r_odd += o.tax_r_odd; tax_w_odd += o.tax_w_odd; tax_both_round += o.tax_both_round;
+  tax_gap_le_1us += o.tax_gap_le_1us; tax_gap_le_1ms += o.tax_gap_le_1ms; tax_gap_le_1s += o.tax_gap_le_1s; tax_gap_gt_1s += o.tax_gap_gt_1s;
+  tax_w_exec_le_1us += o.tax_w_exec_le_1us; tax_w_exec_le_1ms += o.tax_w_exec_le_1ms; tax_w_exec_later += o.tax_w_exec_later;
+  tax_w_changed += o.tax_w_changed; tax_w_pending_end += o.tax_w_pending_end;
   rebuilds += o.rebuilds; ref_compares += o.ref_compares; ref_level_mismatch += o.ref_level_mismatch; ref_queue_mismatch += o.ref_queue_mismatch;
   return *this;
 }
@@ -29,8 +38,9 @@ struct Validator::Symbol {
   std::vector<Event> ev;
   Stats stats;
   std::unordered_set<std::uint64_t> live;
+  std::unordered_map<std::uint64_t, std::uint64_t> pending_w;  // ITCH ref of a skipped-ahead order -> mismatch timestamp
   char state = 'T';
-  bool opened = false, closed = false, diverged = false;
+  bool opened = false, closed = false, diverged = false, selected = true;
   std::uint64_t msgs = 0;
 
   void make_book() {
@@ -47,9 +57,14 @@ Validator::Symbol& Validator::sym(std::uint16_t locate) {
     p = std::make_unique<Symbol>();
     p->locate = locate;
     p->name = "?" + std::to_string(locate);
+    p->selected = cfg_.only_symbols.empty();
     p->make_book();
   }
   return *p;
+}
+
+void Validator::emit_op(const Symbol& s, const lob::Op& op) {
+  if (cfg_.op_sink) cfg_.op_sink(s.locate, op);
 }
 
 int Validator::bucket_of(const Symbol& s) const {
@@ -58,7 +73,7 @@ int Validator::bucket_of(const Symbol& s) const {
   return (s.state == 'T' && s.opened && !s.closed) ? kContinuous : kMarketOther;
 }
 
-void Validator::add_order(Symbol& s, std::uint64_t ref, char side, std::int64_t price, std::uint32_t shares) {
+void Validator::add_order(Symbol& s, std::uint64_t ref, char side, std::int64_t price, std::uint32_t shares, bool attributed, bool from_replace) {
   if (orders_.count(ref)) {
     ++s.stats.violation[kDuplicateRef];
     return;
@@ -69,6 +84,10 @@ void Validator::add_order(Symbol& s, std::uint64_t ref, char side, std::int64_t 
   o.price = price;
   o.remaining = o.original = shares;
   o.seq = ++seq_;
+  o.add_ts = last_ts_;
+  o.eng_id = ref;
+  o.attributed = attributed;
+  o.from_replace = from_replace;
   o.booked = !s.diverged;
   if (o.booked) {
     const Side sd = side == 'B' ? Side::Buy : Side::Sell;
@@ -79,6 +98,15 @@ void Validator::add_order(Symbol& s, std::uint64_t ref, char side, std::int64_t 
       o.booked = false;
     } else {
       s.ev.clear();
+      {
+        lob::Op op;
+        op.kind = lob::Op::Kind::Submit;
+        op.id = ref;
+        op.side = sd;
+        op.price = price;
+        op.qty = static_cast<Qty>(shares);
+        emit_op(s, op);
+      }
       if (s.book->submit({ref, sd, OrderType::Limit, TimeInForce::GTC, price, static_cast<Qty>(shares)}) != RejectReason::None) {
         ++s.stats.violation[kBookRejected];
         o.booked = false;
@@ -109,9 +137,19 @@ void Validator::rebuild(Symbol& s) {
   }
   std::sort(v.begin(), v.end());
   s.make_book();
+  if (cfg_.reset_sink) cfg_.reset_sink(s.locate);
   for (const auto& [price, seq, r] : v) {
     const Order& o = orders_.at(r);
-    s.book->submit({r, o.side == 'B' ? Side::Buy : Side::Sell, OrderType::Limit, TimeInForce::GTC, price, static_cast<Qty>(o.remaining)});
+    {
+      lob::Op op;
+      op.kind = lob::Op::Kind::Submit;
+      op.id = o.eng_id;
+      op.side = o.side == 'B' ? Side::Buy : Side::Sell;
+      op.price = price;
+      op.qty = static_cast<Qty>(o.remaining);
+      emit_op(s, op);
+    }
+    s.book->submit({o.eng_id, o.side == 'B' ? Side::Buy : Side::Sell, OrderType::Limit, TimeInForce::GTC, price, static_cast<Qty>(o.remaining)});
   }
   s.ev.clear();
 }
@@ -134,12 +172,23 @@ void Validator::compare_reference(Symbol& s) {
 }
 
 void Validator::execute(Symbol& s, const Message& m) {
+  if (!s.pending_w.empty()) {
+    const auto pw = s.pending_w.find(m.ref);
+    if (pw != s.pending_w.end()) {
+      const std::uint64_t dt = m.ts_ns - pw->second;
+      if (dt <= 1000) ++s.stats.tax_w_exec_le_1us;
+      else if (dt <= 1000000) ++s.stats.tax_w_exec_le_1ms;
+      else ++s.stats.tax_w_exec_later;
+      s.pending_w.erase(pw);
+    }
+  }
   auto it = orders_.find(m.ref);
   if (it == orders_.end()) {
     ++s.stats.violation[kUnknownRef];
     return;
   }
   Order& o = it->second;
+  const std::uint64_t eid = o.eng_id;
   std::uint64_t executed = m.qty;
   if (executed > o.remaining) {
     ++s.stats.violation[kOverExecute];
@@ -161,24 +210,70 @@ void Validator::execute(Symbol& s, const Message& m) {
     ++s.stats.exec_checked[b];
     const Side resting = o.side == 'B' ? Side::Buy : Side::Sell;
     s.ev.clear();
+    {
+      lob::Op op;
+      op.kind = lob::Op::Kind::Submit;
+      op.id = ioc_id_;
+      op.side = opposite(resting);
+      op.tif = TimeInForce::IOC;
+      op.price = o.price;
+      op.qty = static_cast<Qty>(executed);
+      emit_op(s, op);
+    }
     s.book->submit({ioc_id_++, opposite(resting), OrderType::Limit, TimeInForce::IOC, o.price, static_cast<Qty>(executed)});
     std::vector<Event> trades;
     for (const auto& e : s.ev)
       if (e.type == EventType::Trade) trades.push_back(e);
-    const bool ok = trades.size() == 1 && trades[0].maker_id == m.ref && trades[0].price == o.price &&
+    const bool ok = trades.size() == 1 && trades[0].maker_id == eid && trades[0].price == o.price &&
                     trades[0].qty == static_cast<Qty>(executed);
     if (ok) {
       ++s.stats.exec_ok[b];
     } else {
       int kind = kOtherDifference;
       if (trades.empty()) kind = kNoFill;
-      else if (trades[0].maker_id != m.ref) {
+      else if (trades[0].maker_id != eid) {
         const bool better = resting == Side::Sell ? trades[0].price < o.price : trades[0].price > o.price;
         kind = better ? kBetterPriceAhead : (trades[0].price == o.price ? kSamePriceOtherOrder : kOtherDifference);
       }
       ++s.stats.mismatch[b][kind];
-      const Order* other = trades.empty() ? nullptr : (orders_.count(trades[0].maker_id) ? &orders_.at(trades[0].maker_id) : nullptr);
+      const Order* other = nullptr;
+      if (!trades.empty()) {
+        const auto rn = renamed_.find(trades[0].maker_id);
+        const std::uint64_t key = rn == renamed_.end() ? trades[0].maker_id : rn->second;
+        const auto oi = orders_.find(key);
+        if (oi != orders_.end()) other = &oi->second;
+      }
       if (o.original < 100 || (other && other->original < 100)) ++s.stats.mismatch_odd_lot[b];
+      if (b == kContinuous && other && kind == kSamePriceOtherOrder) {
+        const bool ro = o.original < 100, wo = other->original < 100;
+        {
+          bool has_round = false;
+          for (std::uint64_t lr : s.live) {
+            const Order& q = orders_.at(lr);
+            if (&q == &o || q.side != o.side || q.price != o.price || !q.booked || q.seq >= o.seq) continue;
+            if (q.original >= 100) {
+              has_round = true;
+              break;
+            }
+          }
+          if (has_round) ++s.stats.tax_ahead_has_round;
+          else ++s.stats.tax_ahead_all_odd;
+        }
+        s.stats.tax_r_attributed += o.attributed;
+        s.stats.tax_w_attributed += other->attributed;
+        s.stats.tax_r_from_replace += o.from_replace;
+        s.stats.tax_w_from_replace += other->from_replace;
+        s.stats.tax_r_odd += ro;
+        s.stats.tax_w_odd += wo;
+        s.stats.tax_both_round += (!ro && !wo);
+        const std::uint64_t gap = o.add_ts > other->add_ts ? o.add_ts - other->add_ts : other->add_ts - o.add_ts;
+        if (gap <= 1000) ++s.stats.tax_gap_le_1us;
+        else if (gap <= 1000000) ++s.stats.tax_gap_le_1ms;
+        else if (gap <= 1000000000ULL) ++s.stats.tax_gap_le_1s;
+        else ++s.stats.tax_gap_gt_1s;
+        const auto rn2 = renamed_.find(trades[0].maker_id);
+        s.pending_w[rn2 == renamed_.end() ? trades[0].maker_id : rn2->second] = m.ts_ns;
+      }
       if (examples_.size() < cfg_.max_examples) {
         Example e;
         e.symbol = s.name; e.ts_ns = m.ts_ns; e.ref = m.ref; e.price = o.price; e.executed = executed; e.order_shares_orig = o.original;
@@ -190,22 +285,28 @@ void Validator::execute(Symbol& s, const Message& m) {
     }
     // Exchange truth for the reference mirror and the tracker, then resync our book after a mismatch.
     if (s.ref) {
-      if (new_rem == 0) s.ref->cancel(m.ref);
-      else s.ref->modify(m.ref, o.price, static_cast<Qty>(new_rem));
+      if (new_rem == 0) s.ref->cancel(eid);
+      else s.ref->modify(eid, o.price, static_cast<Qty>(new_rem));
     }
     o.remaining = new_rem;
-    if (new_rem == 0) remove_order(s, m.ref, o);
+    if (new_rem == 0) {
+      renamed_.erase(eid);
+      remove_order(s, m.ref, o);
+    }
     if (!ok) {
       rebuild(s);
     } else if (new_rem > 0) {
-      const auto v = s.book->find(m.ref);
+      const auto v = s.book->find(eid);
       if (!v || v->qty != static_cast<Qty>(new_rem)) ++s.stats.violation[kBookQtyMismatch];
     }
     return;
   }
   // unbooked path: tracker only (the reference mirror never saw this order either)
   o.remaining = new_rem;
-  if (new_rem == 0) remove_order(s, m.ref, o);
+  if (new_rem == 0) {
+    renamed_.erase(eid);
+    remove_order(s, m.ref, o);
+  }
 }
 
 void Validator::on_message(const Message& m) {
@@ -219,11 +320,13 @@ void Validator::on_message(const Message& m) {
     return;
   }
   Symbol& s = sym(m.locate);
+  if (m.type != 'R' && !s.selected) return;
   ++s.stats.messages;
   ++s.msgs;
   switch (m.type) {
     case 'R':
       s.name = m.stock;
+      s.selected = cfg_.only_symbols.empty() || cfg_.only_symbols.count(s.name) > 0;
       if (cfg_.reference_symbols.count(s.name) && !s.ref) s.ref = std::make_unique<lob::ref::ReferenceBook>();
       break;
     case 'H':
@@ -233,10 +336,11 @@ void Validator::on_message(const Message& m) {
     case 'A':
     case 'F':
       ++s.stats.adds;
-      add_order(s, m.ref, m.side, m.price, static_cast<std::uint32_t>(m.qty));
+      add_order(s, m.ref, m.side, m.price, static_cast<std::uint32_t>(m.qty), m.type == 'F', false);
       break;
     case 'D': {
       ++s.stats.deletes;
+      if (!s.pending_w.empty() && s.pending_w.erase(m.ref)) ++s.stats.tax_w_changed;
       auto it = orders_.find(m.ref);
       if (it == orders_.end()) {
         ++s.stats.violation[kUnknownRef];
@@ -245,16 +349,24 @@ void Validator::on_message(const Message& m) {
       Order& o = it->second;
       if (o.booked && !s.diverged) {
         s.ev.clear();
-        if (s.book->cancel(m.ref) != RejectReason::None) ++s.stats.violation[kBookRejected];
-        if (s.ref) s.ref->cancel(m.ref);
+        {
+          lob::Op op;
+          op.kind = lob::Op::Kind::Cancel;
+          op.id = o.eng_id;
+          emit_op(s, op);
+        }
+        if (s.book->cancel(o.eng_id) != RejectReason::None) ++s.stats.violation[kBookRejected];
+        if (s.ref) s.ref->cancel(o.eng_id);
       } else {
         ++s.stats.events_on_unbooked;
       }
+      renamed_.erase(o.eng_id);
       remove_order(s, m.ref, o);
       break;
     }
     case 'X': {
       ++s.stats.partial_cancels;
+      if (!s.pending_w.empty() && s.pending_w.erase(m.ref)) ++s.stats.tax_w_changed;
       auto it = orders_.find(m.ref);
       if (it == orders_.end()) {
         ++s.stats.violation[kUnknownRef];
@@ -269,24 +381,46 @@ void Validator::on_message(const Message& m) {
       const std::uint32_t new_rem = o.remaining - static_cast<std::uint32_t>(cancelled);
       if (o.booked && !s.diverged) {
         s.ev.clear();
+        {
+          lob::Op op;
+          op.kind = new_rem == 0 ? lob::Op::Kind::Cancel : lob::Op::Kind::Modify;
+          op.id = o.eng_id;
+          op.price = o.price;
+          op.qty = static_cast<Qty>(new_rem);
+          emit_op(s, op);
+        }
         if (new_rem == 0) {
-          if (s.book->cancel(m.ref) != RejectReason::None) ++s.stats.violation[kBookRejected];
-          if (s.ref) s.ref->cancel(m.ref);
+          if (s.book->cancel(o.eng_id) != RejectReason::None) ++s.stats.violation[kBookRejected];
+          if (s.ref) s.ref->cancel(o.eng_id);
         } else {
-          if (s.book->modify(m.ref, o.price, static_cast<Qty>(new_rem)) != RejectReason::None) ++s.stats.violation[kBookRejected];
-          if (s.ref) s.ref->modify(m.ref, o.price, static_cast<Qty>(new_rem));
-          const auto v = s.book->find(m.ref);
+          if (cfg_.partial_cancel_loses_priority) {
+            s.book->cancel(o.eng_id);
+            s.book->submit({o.eng_id, o.side == 'B' ? Side::Buy : Side::Sell, OrderType::Limit, TimeInForce::GTC, o.price, static_cast<Qty>(new_rem)});
+            if (s.ref) {
+              s.ref->cancel(o.eng_id);
+              s.ref->submit({o.eng_id, o.side == 'B' ? Side::Buy : Side::Sell, OrderType::Limit, TimeInForce::GTC, o.price, static_cast<Qty>(new_rem)});
+            }
+            o.seq = ++seq_;
+          } else {
+            if (s.book->modify(o.eng_id, o.price, static_cast<Qty>(new_rem)) != RejectReason::None) ++s.stats.violation[kBookRejected];
+            if (s.ref) s.ref->modify(o.eng_id, o.price, static_cast<Qty>(new_rem));
+          }
+          const auto v = s.book->find(o.eng_id);
           if (!v || v->qty != static_cast<Qty>(new_rem)) ++s.stats.violation[kBookQtyMismatch];
         }
       } else {
         ++s.stats.events_on_unbooked;
       }
       o.remaining = new_rem;
-      if (new_rem == 0) remove_order(s, m.ref, o);
+      if (new_rem == 0) {
+        renamed_.erase(o.eng_id);
+        remove_order(s, m.ref, o);
+      }
       break;
     }
     case 'U': {
       ++s.stats.replaces;
+      if (!s.pending_w.empty() && s.pending_w.erase(m.ref)) ++s.stats.tax_w_changed;
       auto it = orders_.find(m.ref);
       if (it == orders_.end()) {
         ++s.stats.violation[kUnknownRef];
@@ -294,15 +428,46 @@ void Validator::on_message(const Message& m) {
       }
       Order& o = it->second;
       const char side = o.side;
+      if (cfg_.replace_reduction_keeps_priority && o.booked && !s.diverged && m.price == o.price && m.qty > 0 && m.qty <= o.remaining &&
+          !orders_.count(m.new_ref)) {
+        // in place: same price, size not increased -> keeps queue priority; the exchange gives it a new reference
+        s.ev.clear();
+        Order moved = o;
+        if (m.qty < o.remaining) {
+          lob::Op op;
+          op.kind = lob::Op::Kind::Modify;
+          op.id = o.eng_id;
+          op.price = o.price;
+          op.qty = static_cast<Qty>(m.qty);
+          emit_op(s, op);
+          if (s.book->modify(o.eng_id, o.price, static_cast<Qty>(m.qty)) != RejectReason::None) ++s.stats.violation[kBookRejected];
+          if (s.ref) s.ref->modify(o.eng_id, o.price, static_cast<Qty>(m.qty));
+        }
+        moved.remaining = static_cast<std::uint32_t>(m.qty);
+        moved.original = moved.remaining;
+        s.live.erase(m.ref);
+        orders_.erase(m.ref);
+        renamed_[moved.eng_id] = m.new_ref;
+        orders_.emplace(m.new_ref, moved);
+        s.live.insert(m.new_ref);
+        break;
+      }
       if (o.booked && !s.diverged) {
         s.ev.clear();
-        if (s.book->cancel(m.ref) != RejectReason::None) ++s.stats.violation[kBookRejected];
-        if (s.ref) s.ref->cancel(m.ref);
+        {
+          lob::Op op;
+          op.kind = lob::Op::Kind::Cancel;
+          op.id = o.eng_id;
+          emit_op(s, op);
+        }
+        if (s.book->cancel(o.eng_id) != RejectReason::None) ++s.stats.violation[kBookRejected];
+        if (s.ref) s.ref->cancel(o.eng_id);
       } else {
         ++s.stats.events_on_unbooked;
       }
+      renamed_.erase(o.eng_id);
       remove_order(s, m.ref, o);
-      add_order(s, m.new_ref, side, m.price, static_cast<std::uint32_t>(m.qty));
+      add_order(s, m.new_ref, side, m.price, static_cast<std::uint32_t>(m.qty), false, true);
       break;
     }
     case 'E':
@@ -323,8 +488,11 @@ void Validator::on_message(const Message& m) {
 }
 
 void Validator::finish() {
-  for (auto& [loc, s] : syms_)
+  for (auto& [loc, s] : syms_) {
+    s->stats.tax_w_pending_end += s->pending_w.size();
+    s->pending_w.clear();
     if (s->ref) compare_reference(*s);
+  }
 }
 
 Stats Validator::total() const {
@@ -348,6 +516,12 @@ std::vector<Validator::SymbolInfo> Validator::symbols() const {
   }
   std::sort(v.begin(), v.end(), [](const SymbolInfo& a, const SymbolInfo& b) { return a.stats.messages > b.stats.messages; });
   return v;
+}
+
+std::uint64_t Validator::book_digest(const std::string& symbol) const {
+  for (const auto& [loc, s] : syms_)
+    if (s->name == symbol) return lob::digest_book(14695981039346656037ULL, *s->book);
+  return 0;
 }
 
 std::uint64_t Validator::system_event_ts(char code) const {
@@ -379,7 +553,12 @@ void stats_json(std::ostringstream& o, const Stats& s) {
   for (int k = 0; k < kViolationKinds; ++k) o << (k ? "," : "") << "\"" << kViolNames[k] << "\":" << s.violation[k];
   o << "},\"events_on_unbooked_orders\":" << s.events_on_unbooked << ",\"book_rebuilds_after_disagreement\":" << s.rebuilds
     << ",\"reference_comparisons\":" << s.ref_compares << ",\"reference_level_mismatches\":" << s.ref_level_mismatch
-    << ",\"reference_queue_order_mismatches\":" << s.ref_queue_mismatch << "}";
+    << ",\"reference_queue_order_mismatches\":" << s.ref_queue_mismatch
+    << ",\"continuous_same_price_mismatch_taxonomy\":{\"orders_ahead_of_executed_all_odd_lots\":" << s.tax_ahead_all_odd << ",\"orders_ahead_of_executed_include_a_round_lot\":" << s.tax_ahead_has_round << ",\"executed_order_is_attributed_F\":" << s.tax_r_attributed << ",\"skipped_order_is_attributed_F\":" << s.tax_w_attributed << ",\"executed_order_created_by_replace_U\":" << s.tax_r_from_replace << ",\"skipped_order_created_by_replace_U\":" << s.tax_w_from_replace << ",\"executed_order_is_odd_lot\":" << s.tax_r_odd << ",\"skipped_order_is_odd_lot\":" << s.tax_w_odd
+    << ",\"both_round_lot\":" << s.tax_both_round << ",\"gap_between_the_two_adds_le_1us\":" << s.tax_gap_le_1us << ",\"gap_le_1ms\":" << s.tax_gap_le_1ms
+    << ",\"gap_le_1s\":" << s.tax_gap_le_1s << ",\"gap_gt_1s\":" << s.tax_gap_gt_1s << ",\"skipped_order_then_executed_within_1us\":" << s.tax_w_exec_le_1us
+    << ",\"skipped_order_then_executed_within_1ms\":" << s.tax_w_exec_le_1ms << ",\"skipped_order_then_executed_later\":" << s.tax_w_exec_later
+    << ",\"skipped_order_then_cancelled_or_modified\":" << s.tax_w_changed << ",\"skipped_order_still_resting_at_end\":" << s.tax_w_pending_end << "}}";
 }
 }  // namespace
 
