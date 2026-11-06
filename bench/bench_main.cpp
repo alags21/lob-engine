@@ -16,6 +16,12 @@
 //    traded quantity, so the work cannot be optimised away and its cost is small and constant.
 //  * A separate untimed pass hashes every event and the final book into a checksum; it must be
 //    identical across implementations for the same workload and seed.
+// GCC 13 reports a false positive (stringop-overflow) once the counting operator new below is
+// inlined into std::vector growth in the workload generator.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
