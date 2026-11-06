@@ -39,6 +39,10 @@ Event make_reject(OrderId id, RejectReason r) {
 
 OrderBook::OrderBook(EventHandler handler) : handler_(std::move(handler)) {}
 
+OrderBook::~OrderBook() {
+  for (auto& [id, n] : index_) delete n;
+}
+
 RejectReason OrderBook::submit(const NewOrder& o) {
   DebugCheckGuard guard(*this);
   auto reject = [&](RejectReason r) {
@@ -96,16 +100,17 @@ RejectReason OrderBook::cancel(OrderId id) {
     emit(make_reject(id, RejectReason::UnknownOrder));
     return RejectReason::UnknownOrder;
   }
-  const Locator loc = it->second;
+  Node* n = it->second;
   Event c;
   c.type = EventType::Cancelled;
   c.order_id = id;
-  c.side = loc.side;
-  c.price = loc.price;
-  c.qty = loc.it->qty;
+  c.side = n->side;
+  c.price = n->price;
+  c.qty = n->qty;
   c.cancel = CancelReason::UserRequest;
-  erase_resting(loc);
+  unlink(n);
   index_.erase(it);
+  delete n;
   emit(c);
   return RejectReason::None;
 }
@@ -126,21 +131,23 @@ RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
     return RejectReason::InvalidPrice;
   }
 
-  const Locator loc = it->second;
-  const Qty old_qty = loc.it->qty;
+  Node* n = it->second;
+  const Side side = n->side;
+  const Price old_price = n->price;
+  const Qty old_qty = n->qty;
   Event m;
   m.type = EventType::Modified;
   m.order_id = id;
-  m.side = loc.side;
+  m.side = side;
   m.price = new_price;
   m.qty = new_qty;
 
-  if (new_price == loc.price && new_qty <= old_qty) {
+  if (new_price == old_price && new_qty <= old_qty) {
     // Same price, no size increase: in place, priority kept.
     if (new_qty < old_qty) {
-      Level& lvl = loc.side == Side::Buy ? bids_.at(loc.price) : asks_.at(loc.price);
+      Level& lvl = side == Side::Buy ? bids_.at(old_price) : asks_.at(old_price);
       lvl.total -= old_qty - new_qty;
-      loc.it->qty = new_qty;
+      n->qty = new_qty;
     }
     m.lost_priority = false;
     emit(m);
@@ -148,12 +155,13 @@ RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
   }
 
   // Cancel/replace: priority lost; may now cross and trade as a taker.
-  erase_resting(loc);
+  unlink(n);
   index_.erase(it);
+  delete n;
   m.lost_priority = true;
   emit(m);
-  const Qty left = match(id, loc.side, new_price, new_qty);
-  if (left > 0) rest(id, loc.side, new_price, left);
+  const Qty left = match(id, side, new_price, new_qty);
+  if (left > 0) rest(id, side, new_price, left);
   return RejectReason::None;
 }
 
@@ -169,26 +177,30 @@ Qty OrderBook::match_against(Book& opp, OrderId id, Side side, std::optional<Pri
     auto lvl_it = opp.begin();
     if (!crosses(side, limit, lvl_it->first)) break;
     Level& lvl = lvl_it->second;
-    while (qty > 0 && !lvl.queue.empty()) {
-      RestingOrder& maker = lvl.queue.front();
-      const Qty fill = std::min(qty, maker.qty);
+    while (qty > 0 && lvl.head) {
+      Node* maker = lvl.head;
+      const Qty fill = std::min(qty, maker->qty);
       Event t;
       t.type = EventType::Trade;
       t.order_id = id;
-      t.maker_id = maker.id;
+      t.maker_id = maker->id;
       t.side = side;
       t.price = lvl_it->first;
       t.qty = fill;
       qty -= fill;
-      maker.qty -= fill;
+      maker->qty -= fill;
       lvl.total -= fill;
-      if (maker.qty == 0) {
-        index_.erase(maker.id);
-        lvl.queue.pop_front();
+      if (maker->qty == 0) {
+        index_.erase(maker->id);
+        lvl.head = maker->next;
+        if (lvl.head) lvl.head->prev = nullptr;
+        else lvl.tail = nullptr;
+        --lvl.count;
+        delete maker;
       }
       emit(t);
     }
-    if (lvl.queue.empty()) opp.erase(lvl_it);
+    if (!lvl.head) opp.erase(lvl_it);
   }
   return qty;
 }
@@ -212,9 +224,13 @@ Qty OrderBook::available_for(Side side, std::optional<Price> limit, Qty need) co
 void OrderBook::rest(OrderId id, Side side, Price price, Qty qty) {
   auto place = [&](auto& book) {
     Level& lvl = book[price];
-    lvl.queue.push_back({id, qty});
+    Node* n = new Node{id, qty, price, side, lvl.tail, nullptr};
+    if (lvl.tail) lvl.tail->next = n;
+    else lvl.head = n;
+    lvl.tail = n;
     lvl.total += qty;
-    index_.emplace(id, Locator{side, price, std::prev(lvl.queue.end())});
+    ++lvl.count;
+    index_.emplace(id, n);
   };
   if (side == Side::Buy) {
     place(bids_);
@@ -223,16 +239,19 @@ void OrderBook::rest(OrderId id, Side side, Price price, Qty qty) {
   }
 }
 
-// Removes the order from its level (and the level if it becomes empty). Caller erases the index.
-void OrderBook::erase_resting(const Locator& loc) {
+void OrderBook::unlink(Node* n) {
   auto remove = [&](auto& book) {
-    auto lvl_it = book.find(loc.price);
+    auto lvl_it = book.find(n->price);
     Level& lvl = lvl_it->second;
-    lvl.total -= loc.it->qty;
-    lvl.queue.erase(loc.it);
-    if (lvl.queue.empty()) book.erase(lvl_it);
+    lvl.total -= n->qty;
+    --lvl.count;
+    if (n->prev) n->prev->next = n->next;
+    else lvl.head = n->next;
+    if (n->next) n->next->prev = n->prev;
+    else lvl.tail = n->prev;
+    if (!lvl.head) book.erase(lvl_it);
   };
-  if (loc.side == Side::Buy) {
+  if (n->side == Side::Buy) {
     remove(bids_);
   } else {
     remove(asks_);
@@ -252,18 +271,25 @@ std::string OrderBook::validate() const {
   auto check_side = [&](const auto& book, Side side) -> std::string {
     for (const auto& [price, lvl] : book) {
       if (price <= 0) return "non-positive level price";
-      if (lvl.queue.empty()) return "empty level present at " + std::to_string(price);
+      if (!lvl.head || !lvl.tail) return "empty level present at " + std::to_string(price);
+      if (lvl.head->prev || lvl.tail->next) return "list ends not terminated at " + std::to_string(price);
       Qty sum = 0;
-      for (auto it = lvl.queue.begin(); it != lvl.queue.end(); ++it) {
-        if (it->qty <= 0) return "non-positive resting qty, order " + std::to_string(it->id);
-        sum += it->qty;
-        ++orders;
-        auto idx = index_.find(it->id);
-        if (idx == index_.end()) return "resting order missing from index: " + std::to_string(it->id);
-        if (idx->second.side != side || idx->second.price != price || idx->second.it != it)
-          return "index locator mismatch for order " + std::to_string(it->id);
+      std::size_t cnt = 0;
+      const Node* prev = nullptr;
+      for (const Node* n = lvl.head; n; prev = n, n = n->next) {
+        if (n->prev != prev) return "broken prev link, order " + std::to_string(n->id);
+        if (n->qty <= 0) return "non-positive resting qty, order " + std::to_string(n->id);
+        if (n->side != side || n->price != price) return "node side/price mismatch, order " + std::to_string(n->id);
+        sum += n->qty;
+        ++cnt;
+        auto idx = index_.find(n->id);
+        if (idx == index_.end()) return "resting order missing from index: " + std::to_string(n->id);
+        if (idx->second != n) return "index pointer mismatch for order " + std::to_string(n->id);
       }
+      if (prev != lvl.tail) return "tail pointer wrong at " + std::to_string(price);
       if (sum != lvl.total) return "level total mismatch at " + std::to_string(price);
+      if (cnt != lvl.count) return "level count mismatch at " + std::to_string(price);
+      orders += cnt;
     }
     return {};
   };
@@ -288,7 +314,7 @@ std::optional<Price> OrderBook::best_ask() const {
 std::optional<OrderBook::OrderView> OrderBook::find(OrderId id) const {
   auto it = index_.find(id);
   if (it == index_.end()) return std::nullopt;
-  return OrderView{it->second.side, it->second.price, it->second.it->qty};
+  return OrderView{it->second->side, it->second->price, it->second->qty};
 }
 
 Qty OrderBook::qty_at(Side side, Price price) const {
@@ -304,7 +330,8 @@ std::vector<RestingOrder> OrderBook::orders_at(Side side, Price price) const {
   auto collect = [&](const auto& book) {
     std::vector<RestingOrder> out;
     auto it = book.find(price);
-    if (it != book.end()) out.assign(it->second.queue.begin(), it->second.queue.end());
+    if (it != book.end())
+      for (const Node* n = it->second.head; n; n = n->next) out.push_back({n->id, n->qty});
     return out;
   };
   return side == Side::Buy ? collect(bids_) : collect(asks_);
@@ -313,7 +340,7 @@ std::vector<RestingOrder> OrderBook::orders_at(Side side, Price price) const {
 std::vector<LevelInfo> OrderBook::levels(Side side) const {
   auto collect = [](const auto& book) {
     std::vector<LevelInfo> out;
-    for (const auto& [price, lvl] : book) out.push_back({price, lvl.total, lvl.queue.size()});
+    for (const auto& [price, lvl] : book) out.push_back({price, lvl.total, lvl.count});
     return out;
   };
   return side == Side::Buy ? collect(bids_) : collect(asks_);

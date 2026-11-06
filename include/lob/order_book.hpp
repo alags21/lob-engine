@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <list>
 #include <map>
 #include <optional>
 #include <string>
@@ -26,6 +25,9 @@ class OrderBook {
   using EventHandler = std::function<void(const Event&)>;
 
   explicit OrderBook(EventHandler handler = {});
+  ~OrderBook();
+  OrderBook(const OrderBook&) = delete;
+  OrderBook& operator=(const OrderBook&) = delete;
 
   /// Enter a new order. Emits Accepted, then any Trades, then Cancelled for an unfilled
   /// IOC/market remainder or an unfillable FOK.
@@ -75,17 +77,23 @@ class OrderBook {
   void debug_check_public() const;
 
  private:
+  // Orders are intrusive nodes in a per-level doubly linked list (front = highest time priority).
+  struct Node {
+    OrderId id;
+    Qty qty;
+    Price price;
+    Side side;
+    Node* prev;
+    Node* next;
+  };
   struct Level {
-    std::list<RestingOrder> queue;
+    Node* head = nullptr;
+    Node* tail = nullptr;
     Qty total = 0;
+    std::size_t count = 0;
   };
   using BidMap = std::map<Price, Level, std::greater<Price>>;
   using AskMap = std::map<Price, Level>;
-  struct Locator {
-    Side side;
-    Price price;
-    std::list<RestingOrder>::iterator it;
-  };
 
   void emit(const Event& e) const {
     if (handler_) handler_(e);
@@ -99,11 +107,12 @@ class OrderBook {
   Qty available(const Book& opp, Side side, std::optional<Price> limit, Qty need) const;
   Qty available_for(Side side, std::optional<Price> limit, Qty need) const;
   void rest(OrderId id, Side side, Price price, Qty qty);
-  void erase_resting(const Locator& loc);
+  /// Unlinks the node from its level (erasing the level if empty). Does not free it or touch index_.
+  void unlink(Node* n);
 
   BidMap bids_;
   AskMap asks_;
-  std::unordered_map<OrderId, Locator> index_;
+  std::unordered_map<OrderId, Node*> index_;
   EventHandler handler_;
 };
 
