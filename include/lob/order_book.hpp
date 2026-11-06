@@ -225,11 +225,16 @@ class OrderBook {
     void erase(iterator r) { v_.erase(r.base() - 1); }
 
    private:
+    // First element not ordered before p, found by scanning from the best (last) level.
     typename Vec::iterator lower(Price p) {
-      return std::lower_bound(v_.begin(), v_.end(), p, [](const Entry& e, Price x) { return Cmp()(e.first, x); });
+      auto it = v_.end();
+      while (it != v_.begin() && !Cmp()(std::prev(it)->first, p)) --it;
+      return it;
     }
     typename Vec::const_iterator lower(Price p) const {
-      return std::lower_bound(v_.begin(), v_.end(), p, [](const Entry& e, Price x) { return Cmp()(e.first, x); });
+      auto it = v_.end();
+      while (it != v_.begin() && !Cmp()(std::prev(it)->first, p)) --it;
+      return it;
     }
     Vec v_;
   };
