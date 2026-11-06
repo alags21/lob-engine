@@ -10,8 +10,11 @@ import argparse, os, platform, re, subprocess, sys, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+TREE = ROOT
+
+
 def sh(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT).stdout.strip()
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=TREE).stdout.strip()
 
 
 def cpu_load():
@@ -30,7 +33,7 @@ def cpu_load():
 
 
 def cmake_flags(build):
-    cache = os.path.join(ROOT, build, "CMakeCache.txt")
+    cache = os.path.join(TREE, build, "CMakeCache.txt")
     vals = {}
     for line in open(cache, errors="replace"):
         m = re.match(r"(CMAKE_CXX_FLAGS|CMAKE_CXX_FLAGS_RELEASE|CMAKE_BUILD_TYPE):\w+=(.*)", line.strip())
@@ -49,9 +52,12 @@ def main():
     ap.add_argument("--workloads", nargs="+", default=["passive", "aggressive", "balanced"])
     ap.add_argument("--note", default="Desktop machine, not isolated: normal background load, turbo/boost not controlled.")
     ap.add_argument("--outdir", default="bench/results")
+    ap.add_argument("--tree", default=None, help="source/build tree to benchmark (default: this repo); results still go to this repo")
     a = ap.parse_args()
+    global TREE
+    TREE = os.path.abspath(a.tree) if a.tree else ROOT
 
-    exe = os.path.join(ROOT, a.build, "bench", "lob_bench" + (".exe" if os.name == "nt" else ""))
+    exe = os.path.join(TREE, a.build, "bench", "lob_bench" + (".exe" if os.name == "nt" else ""))
     if not os.path.exists(exe):
         sys.exit(f"missing {exe}")
     sha = sh(["git", "rev-parse", "--short", "HEAD"])
