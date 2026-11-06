@@ -107,7 +107,9 @@ TEST(MarketSim, SnapshotsCoverTheRunAndBooksAreUncrossed) {
   EXPECT_EQ(r.snapshots.back().op_index, r.ops.size());
   for (const auto& s : r.snapshots) {
     EXPECT_LE(s.bids.size(), 10u);
-    if (!s.bids.empty() && !s.asks.empty()) EXPECT_LT(s.bids.front().price, s.asks.front().price);
+    if (!s.bids.empty() && !s.asks.empty()) {
+      EXPECT_LT(s.bids.front().price, s.asks.front().price);
+    }
     for (std::size_t i = 1; i < s.bids.size(); ++i) EXPECT_GT(s.bids[i - 1].price, s.bids[i].price);
     for (std::size_t i = 1; i < s.asks.size(); ++i) EXPECT_LT(s.asks[i - 1].price, s.asks[i].price);
   }
