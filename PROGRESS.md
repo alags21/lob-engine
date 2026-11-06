@@ -5,7 +5,7 @@
 | 0 | Scaffold, CI | in review (CI green) | #1 |
 | 1 | Core book | in review (CI green) | #2 |
 | 2 | Correctness harness | in review (CI green) | #3 |
-| 3 | Performance | not started | |
+| 3 | Performance | in review | PR pending |
 | 4 | Concurrency | not started | |
 | 5 | Replay and visualizer | not started | |
 | 6 | Polish | not started | |
@@ -42,9 +42,29 @@ mismatches): gcc and clang Release each ran seeds 1, 2 (500,000 ops each, 1,530,
 compiler, in about 1.1-3.5 s per command. Debug (gcc, clang): seed 1, 100,000 ops, state and
 invariants checked every op, 15-21 s. ASan+UBSan: seed 1, 200,000 ops, 216 s.
 
+## Stage 3 headline (generated)
+
+<!-- BEGIN GENERATED:perf -->
+Baseline `00-baseline` vs `05-linear-scan-levels` (medians of repeated runs; see docs/PERFORMANCE.md for method, variance and every step).
+
+| workload | baseline Mops/s | final Mops/s | speedup | baseline p99 ns | final p99 ns | baseline p99.9 ns | final p99.9 ns | allocs/op before -> after |
+|---|---|---|---|---|---|---|---|---|
+| passive | 4.79 | 11.53 | 2.41x | 631 | 281 | 1483 | 521 | 0.864 -> 0.000 |
+| aggressive | 5.79 | 12.88 | 2.22x | 701 | 301 | 1573 | 551 | 0.764 -> 0.000 |
+| balanced | 4.66 | 9.32 | 2.00x | 741 | 381 | 1723 | 771 | 0.811 -> 0.000 |
+<!-- END GENERATED:perf -->
+
+Stage 3: benchmark harness (`bench/`, `lob_bench`: seeded passive/aggressive/balanced workloads,
+closed-loop TSC per-op latency, separate wall-clock throughput, allocation counter, event checksum,
+JSON results with full environment record); report generator (`scripts/make_report.py`) producing
+`docs/PERFORMANCE.md` and the generated blocks in README/PROGRESS/DESIGN from `bench/results/*.json`;
+five optimisation steps, one commit each, each gated by unit tests plus differential fuzz and
+invariant checks: intrusive order lists, node pool, flat id table, contiguous price levels, scan
+from the best level. Per-step before/after tables are in `docs/PERFORMANCE.md`. All numbers in this
+stage come from those JSON files; none are typed by hand.
+
 ## Next
-Stage 3: performance (profile-driven data structure work, benchmark harness with histograms,
-before/after table). Starts only after approval.
+Stage 4: concurrency (SPSC ring, mutex baselines, TSan job). Starts only after approval.
 
 ## Known gaps
 - Reference model and `OrderBook` share one author and one spec; a misreading of the spec would be
@@ -54,6 +74,11 @@ before/after table). Starts only after approval.
 - No coverage measurement yet.
 - The nightly workflow only runs on GitHub's schedule or manual dispatch after it is on `main`;
   it has not been executed yet.
-- Storage is still the naive `std::map` + `std::list` baseline; no measurements taken (Stage 3).
+- Performance numbers are from one Windows desktop (not isolated, boost not controlled); treat
+  ratios between steps as the result, not absolute ops/s. Linux numbers have not been measured.
+- Step 1 (intrusive lists) is not a measurable win by itself; it is kept because the pool builds on it.
+- Level lookup by linear scan from the best level is workload dependent (deep books with orders far
+  from the touch would favour binary search); only the three bundled workloads were measured.
+- The event callback is still a `std::function`; its cost is part of every measurement.
 - No self-trade prevention (no participant identity).
 - Local builds are MSVC only; gcc/clang are covered by CI.

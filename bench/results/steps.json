@@ -1,0 +1,30 @@
+{
+  "00-baseline": {
+    "title": "Stage 1 naive book: std::map levels, std::list queues, std::unordered_map id index",
+    "status": "baseline"
+  },
+  "01-intrusive-lists": {
+    "title": "Intrusive doubly linked order nodes (new/delete) instead of std::list",
+    "status": "kept (no gain on its own; prerequisite for the pool)"
+  },
+  "02-node-pool": {
+    "title": "Slab + free-list pool for order nodes",
+    "status": "kept"
+  },
+  "03-flat-id-map": {
+    "title": "Open-addressing flat hash table for id lookup",
+    "status": "kept"
+  },
+  "04-contiguous-levels": {
+    "title": "Sorted contiguous vector of price levels (best last), binary search",
+    "status": "kept"
+  },
+  "05-linear-scan-levels": {
+    "title": "Level lookup by scanning from the best level",
+    "status": "kept"
+  },
+  "99-baseline-rerun": {
+    "title": "Baseline binary measured again at the end of each workload block (drift check)",
+    "status": "re-measure"
+  }
+}

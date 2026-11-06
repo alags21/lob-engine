@@ -24,6 +24,29 @@ local Windows builds use Release (not Debug). Debug and sanitizer builds run in 
 ## CI toolchain
 Ubuntu 24.04, gcc and clang from apt, `libgtest-dev`, `libbenchmark-dev`, Ninja, CMake from apt.
 
-## Benchmark methodology
-Filled in with Stage 3. Every result file must record OS, CPU, compiler, flags, commit SHA, run
-count, and whether turbo/background load was controlled.
+## Benchmark methodology (Stage 3)
+Harness: `bench/bench_main.cpp` (`lob_bench`), workloads in `bench/workload.hpp`, driver
+`scripts/run_bench.py`, interleaved multi-commit driver `scripts/remeasure.py`, report generator
+`scripts/make_report.py`. Results are JSON files in `bench/results/`; every table in the docs is
+generated from them.
+
+- Build for benchmarks: Release (`/O2 /Ob2 /DNDEBUG` on MSVC), not the checked build. Run
+  `scripts\win-build.cmd build-rel`, then `python scripts/run_bench.py --label NAME`.
+- Closed-loop, single thread: ops are issued back to back and each op's latency is its service
+  time. Because nothing queues behind a slow op, coordinated omission does not arise, but the
+  numbers do not describe behaviour under an open-loop arrival process or contention.
+- Clock: x86 TSC read with `lfence` before and after (`rdtsc`), converted to ns by calibrating
+  against `steady_clock` for 200 ms. The cost of one timestamp pair is measured and written to each
+  result file; it is **not** subtracted, so small latencies include it.
+- Throughput is measured separately from latency: a pass with no per-op timers (wall time of the
+  loop), so timestamping does not distort it. Latency percentiles are exact (all samples sorted),
+  per repetition; the files also contain a log2 histogram.
+- One untimed warmup repetition, then the configured number of measured repetitions, each on a
+  freshly constructed book. Reported figures are medians over repetitions; min, max and the
+  coefficient of variation are stored.
+- The thread is pinned to one logical CPU and the process priority is raised. Turbo/boost, power
+  plan and background load are not controlled on this desktop; the CPU load measured just before
+  each run is recorded.
+- An FNV checksum over every emitted event plus the final book on the identical op stream must
+  match between steps; a mismatch makes `make_report.py` fail.
+- CI only checks that the benchmark builds and runs (tiny op count); CI timings are never used.

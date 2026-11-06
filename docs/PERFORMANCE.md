@@ -10,9 +10,9 @@
 - Flags: `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`
 - Thread pinned to logical CPU 8; process/thread priority raised on Windows
 - Clock: rdtsc (lfence-serialised), converted with steady_clock calibration; 1.996 ticks/ns; timestamp-pair overhead 40 ns (not subtracted from latencies)
-- Machine state: Desktop machine, not isolated: normal background load, turbo/boost not controlled. CPU load measured just before each run ranged over: 2%, 2.4%, 5.2%, 14.4%, 16.8%, 33%, 44.2%, 46.4%, 49.6%
+- Machine state: Desktop machine, not isolated: normal background load, turbo/boost not controlled. CPU load measured just before each run ranged over: 13.8%, 16.4%, 19%, 23.4%, 23.6%, 25%, 25.4%, 26.8%, 28%, 28.6%, 28.8%, 29.8%, 30.4%, 30.6%, 34%, 34.6%, 36.8%, 37%, 52.6%, 56.8%
 - Method: closed loop, single thread; per-op service time, no queueing; 1 untimed warmup repetition, 7 measured repetitions on a fresh book each; wall time of whole loop, no per-op timers; per-op TSC timestamps, timer overhead not subtracted
-- Commits benchmarked: 00-baseline: bebb8ed; 01-intrusive-lists: 9f27000; 02-node-pool: a43c087
+- Commits benchmarked: 00-baseline: bebb8ed; 01-intrusive-lists: 9f27000; 02-node-pool: 4e92c21; 03-flat-id-map: 0a25029; 04-contiguous-levels: 3ebd89d; 05-linear-scan-levels: 25be6a3; 99-baseline-rerun: bebb8ed
 
 CI runners are shared and noisy; no CI timing is published here. CI only checks that the benchmark builds and runs.
 
@@ -24,9 +24,13 @@ CI runners are shared and noisy; no CI timing is published here. CI only checks 
 
 | step | change | status | Mops/s median (CV) | vs baseline | p50 ns | p99 ns | p99.9 ns | max ns | allocs/op | same events as baseline |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 00-baseline |  |  | 4.76 (6.6%) | 1.00x | 250 | 651 | 1523 | 192069 | 0.864 | yes |
-| 01-intrusive-lists |  |  | 4.85 (8.8%) | 1.02x | 250 | 661 | 1553 | 174385 | 0.859 | yes |
-| 02-node-pool |  |  | 5.41 (7.0%) | 1.14x | 230 | 561 | 1272 | 437529 | 0.432 | yes |
+| 00-baseline | Stage 1 naive book: std::map levels, std::list queues, std::unordered_map id index | baseline | 4.79 (3.7%) | 1.00x | 240 | 631 | 1483 | 956935 | 0.864 | yes |
+| 01-intrusive-lists | Intrusive doubly linked order nodes (new/delete) instead of std::list | kept (no gain on its own; prerequisite for the pool) | 4.75 (7.4%) | 0.99x | 260 | 641 | 1493 | 464381 | 0.859 | yes |
+| 02-node-pool | Slab + free-list pool for order nodes | kept | 5.61 (6.0%) | 1.17x | 210 | 531 | 1152 | 907600 | 0.432 | yes |
+| 03-flat-id-map | Open-addressing flat hash table for id lookup | kept | 8.73 (7.1%) | 1.82x | 150 | 381 | 771 | 379388 | 0.005 | yes |
+| 04-contiguous-levels | Sorted contiguous vector of price levels (best last), binary search | kept | 9.46 (3.1%) | 1.97x | 140 | 321 | 551 | 808741 | 0.000 | yes |
+| 05-linear-scan-levels | Level lookup by scanning from the best level | kept | 11.53 (4.0%) | 2.41x | 120 | 281 | 521 | 397773 | 0.000 | yes |
+| 99-baseline-rerun | Baseline binary measured again at the end of each workload block (drift check) | re-measure | 4.71 (7.1%) | 0.98x | 250 | 621 | 1453 | 914325 | 0.864 | yes |
 
 ### Workload `aggressive`
 
@@ -34,9 +38,13 @@ CI runners are shared and noisy; no CI timing is published here. CI only checks 
 
 | step | change | status | Mops/s median (CV) | vs baseline | p50 ns | p99 ns | p99.9 ns | max ns | allocs/op | same events as baseline |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 00-baseline |  |  | 5.48 (9.8%) | 1.00x | 160 | 761 | 1763 | 133657 | 0.764 | yes |
-| 01-intrusive-lists |  |  | 6.22 (6.0%) | 1.13x | 150 | 661 | 1503 | 191658 | 0.654 | yes |
-| 02-node-pool |  |  | 6.83 (5.8%) | 1.25x | 150 | 591 | 1262 | 465733 | 0.382 | yes |
+| 00-baseline | Stage 1 naive book: std::map levels, std::list queues, std::unordered_map id index | baseline | 5.79 (4.1%) | 1.00x | 150 | 701 | 1573 | 925786 | 0.764 | yes |
+| 01-intrusive-lists | Intrusive doubly linked order nodes (new/delete) instead of std::list | kept (no gain on its own; prerequisite for the pool) | 6.01 (7.0%) | 1.04x | 150 | 671 | 1553 | 958508 | 0.654 | yes |
+| 02-node-pool | Slab + free-list pool for order nodes | kept | 6.45 (7.6%) | 1.12x | 150 | 611 | 1343 | 935966 | 0.382 | yes |
+| 03-flat-id-map | Open-addressing flat hash table for id lookup | kept | 10.15 (4.0%) | 1.75x | 120 | 421 | 802 | 541048 | 0.109 | yes |
+| 04-contiguous-levels | Sorted contiguous vector of price levels (best last), binary search | kept | 10.98 (4.4%) | 1.90x | 110 | 331 | 591 | 890959 | 0.000 | yes |
+| 05-linear-scan-levels | Level lookup by scanning from the best level | kept | 12.88 (3.4%) | 2.22x | 110 | 301 | 551 | 842446 | 0.000 | yes |
+| 99-baseline-rerun | Baseline binary measured again at the end of each workload block (drift check) | re-measure | 5.53 (6.5%) | 0.95x | 150 | 751 | 1733 | 874479 | 0.764 | yes |
 
 ### Workload `balanced`
 
@@ -44,8 +52,12 @@ CI runners are shared and noisy; no CI timing is published here. CI only checks 
 
 | step | change | status | Mops/s median (CV) | vs baseline | p50 ns | p99 ns | p99.9 ns | max ns | allocs/op | same events as baseline |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 00-baseline |  |  | 4.30 (7.3%) | 1.00x | 271 | 812 | 2134 | 290057 | 0.811 | yes |
-| 01-intrusive-lists |  |  | 4.74 (4.3%) | 1.10x | 240 | 701 | 1633 | 251353 | 0.785 | yes |
-| 02-node-pool |  |  | 5.46 (4.5%) | 1.27x | 230 | 621 | 1443 | 479841 | 0.405 | yes |
+| 00-baseline | Stage 1 naive book: std::map levels, std::list queues, std::unordered_map id index | baseline | 4.66 (3.2%) | 1.00x | 250 | 741 | 1723 | 987998 | 0.811 | yes |
+| 01-intrusive-lists | Intrusive doubly linked order nodes (new/delete) instead of std::list | kept (no gain on its own; prerequisite for the pool) | 4.57 (7.2%) | 0.98x | 271 | 761 | 1844 | 626933 | 0.785 | yes |
+| 02-node-pool | Slab + free-list pool for order nodes | kept | 5.42 (5.0%) | 1.16x | 220 | 611 | 1363 | 370722 | 0.405 | yes |
+| 03-flat-id-map | Open-addressing flat hash table for id lookup | kept | 7.75 (6.3%) | 1.66x | 150 | 471 | 952 | 491122 | 0.025 | yes |
+| 04-contiguous-levels | Sorted contiguous vector of price levels (best last), binary search | kept | 7.64 (4.6%) | 1.64x | 150 | 491 | 1002 | 551842 | 0.000 | yes |
+| 05-linear-scan-levels | Level lookup by scanning from the best level | kept | 9.32 (6.1%) | 2.00x | 130 | 381 | 771 | 567107 | 0.000 | yes |
+| 99-baseline-rerun | Baseline binary measured again at the end of each workload block (drift check) | re-measure | 4.28 (3.6%) | 0.92x | 260 | 802 | 1884 | 993196 | 0.811 | yes |
 
-Latency columns are medians across repetitions of per-op percentiles (overall, all op kinds). CV is the coefficient of variation of throughput across repetitions. "Same events as baseline" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.
+Latency columns are medians across repetitions of per-op percentiles (overall, all op kinds). CV is the coefficient of variation of throughput across repetitions. The max column is dominated by OS scheduling interruptions on a non-isolated desktop, not by the book. The re-measure row runs the unchanged baseline binary again after the other steps of the same workload; its distance from the first baseline row is a direct estimate of drift between runs, so differences between steps smaller than that are not meaningful. "Same events as baseline" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.

@@ -127,6 +127,7 @@ def main():
             "## Results\n\n" + tables(data, steps) + "\n"
             "Latency columns are medians across repetitions of per-op percentiles (overall, all op kinds). "
             "CV is the coefficient of variation of throughput across repetitions. "
+            "The max column is dominated by OS scheduling interruptions on a non-isolated desktop, not by the book. The re-measure row runs the unchanged baseline binary again after the other steps of the same workload; its distance from the first baseline row is a direct estimate of drift between runs, so differences between steps smaller than that are not meaningful. "
             "\"Same events as baseline\" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.\n")
     if bad:
         perf += f"\n**WARNING: checksum mismatch vs baseline: {bad}**\n"
