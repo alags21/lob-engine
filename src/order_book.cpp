@@ -92,12 +92,11 @@ RejectReason OrderBook::submit(const NewOrder& o) {
 
 RejectReason OrderBook::cancel(OrderId id) {
   DebugCheckGuard guard(*this);
-  auto it = index_.find(id);
-  if (it == index_.end()) {
+  Node* n = index_.find(id);
+  if (!n) {
     emit(make_reject(id, RejectReason::UnknownOrder));
     return RejectReason::UnknownOrder;
   }
-  Node* n = it->second;
   Event c;
   c.type = EventType::Cancelled;
   c.order_id = id;
@@ -106,7 +105,7 @@ RejectReason OrderBook::cancel(OrderId id) {
   c.qty = n->qty;
   c.cancel = CancelReason::UserRequest;
   unlink(n);
-  index_.erase(it);
+  index_.erase(id);
   pool_.release(n);
   emit(c);
   return RejectReason::None;
@@ -114,8 +113,8 @@ RejectReason OrderBook::cancel(OrderId id) {
 
 RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
   DebugCheckGuard guard(*this);
-  auto it = index_.find(id);
-  if (it == index_.end()) {
+  Node* n = index_.find(id);
+  if (!n) {
     emit(make_reject(id, RejectReason::UnknownOrder));
     return RejectReason::UnknownOrder;
   }
@@ -128,7 +127,6 @@ RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
     return RejectReason::InvalidPrice;
   }
 
-  Node* n = it->second;
   const Side side = n->side;
   const Price old_price = n->price;
   const Qty old_qty = n->qty;
@@ -153,7 +151,7 @@ RejectReason OrderBook::modify(OrderId id, Price new_price, Qty new_qty) {
 
   // Cancel/replace: priority lost; may now cross and trade as a taker.
   unlink(n);
-  index_.erase(it);
+  index_.erase(id);
   pool_.release(n);
   m.lost_priority = true;
   emit(m);
@@ -227,7 +225,7 @@ void OrderBook::rest(OrderId id, Side side, Price price, Qty qty) {
     lvl.tail = n;
     lvl.total += qty;
     ++lvl.count;
-    index_.emplace(id, n);
+    index_.insert(id, n);
   };
   if (side == Side::Buy) {
     place(bids_);
@@ -279,9 +277,7 @@ std::string OrderBook::validate() const {
         if (n->side != side || n->price != price) return "node side/price mismatch, order " + std::to_string(n->id);
         sum += n->qty;
         ++cnt;
-        auto idx = index_.find(n->id);
-        if (idx == index_.end()) return "resting order missing from index: " + std::to_string(n->id);
-        if (idx->second != n) return "index pointer mismatch for order " + std::to_string(n->id);
+        if (index_.find(n->id) != n) return "index missing or wrong pointer for order " + std::to_string(n->id);
       }
       if (prev != lvl.tail) return "tail pointer wrong at " + std::to_string(price);
       if (sum != lvl.total) return "level total mismatch at " + std::to_string(price);
@@ -309,9 +305,9 @@ std::optional<Price> OrderBook::best_ask() const {
 }
 
 std::optional<OrderBook::OrderView> OrderBook::find(OrderId id) const {
-  auto it = index_.find(id);
-  if (it == index_.end()) return std::nullopt;
-  return OrderView{it->second->side, it->second->price, it->second->qty};
+  const Node* n = index_.find(id);
+  if (!n) return std::nullopt;
+  return OrderView{n->side, n->price, n->qty};
 }
 
 Qty OrderBook::qty_at(Side side, Price price) const {
