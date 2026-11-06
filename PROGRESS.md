@@ -12,7 +12,8 @@ workflow files, not repeated here.
 | 3 | Performance | in review (CI green) | #4 |
 | 4 | Concurrency | in review (CI green) | #5 |
 | 5 | Replay and visualizer | in review (CI green) | #6 |
-| 6 | Polish | in review | #7 |
+| 6 | Polish | in review (CI green) | #7 |
+| 7 | Real ITCH data validation | **IN PROGRESS, interrupted (usage limit)** | #8 |
 
 Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.md).
 
@@ -37,6 +38,13 @@ Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.m
   `lob-run-v1` JSON export with events and book snapshots, and the static offline visualizer in `viz/`.
 - **Stage 6**: README with architecture diagram and generated tables, DESIGN tradeoffs and limitations,
   `docs/RELEASE.md`, keyboard-reachable "Load run" control, consistency pass over generated numbers.
+
+## Stage 7 (real Nasdaq ITCH data): UNFINISHED
+Work stopped at a usage limit. Done: ITCH 5.0 parser/encoder, stream-decoding validator (order-level,
+priority, reference cross-check), synthetic ITCH generator, CI job on synthetic data only, repo data guard,
+real-file scan, exploratory probes. Not done: full-day validation, hypothesis experiments, replay benchmark,
+generated tables. Everything needed to resume, with exact commands, is in `docs/REALDATA.md` (section
+TODO). Raw data stays in the local folder `Data/itch` under the user profile, outside the repository.
 
 ## Measured results (generated)
 
