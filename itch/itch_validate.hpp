@@ -43,6 +43,17 @@ enum ViolationKind : int {
   kViolationKinds = 6
 };
 
+struct Dim {
+  std::uint64_t checked = 0, mismatched = 0;
+  Dim& operator+=(const Dim& o) { checked += o.checked; mismatched += o.mismatched; return *this; }
+};
+
+/// Continuous-hours executions broken down along dimensions that could explain disagreements with strict FIFO.
+struct Dims {
+  Dim hour[24], since_open[5], near_close[2], etp[2], price[4], gap[4], after_resume[2];
+  Dims& operator+=(const Dims& o);
+};
+
 struct Stats {
   std::uint64_t messages = 0;
   std::uint64_t adds = 0, deletes = 0, partial_cancels = 0, replaces = 0, exec_e = 0, exec_c = 0;
@@ -55,6 +66,9 @@ struct Stats {
   std::uint64_t events_on_unbooked = 0;
   std::uint64_t violation[kViolationKinds] = {};
   std::uint64_t rebuilds = 0;
+  std::uint64_t p_shares = 0;  // shares in non-cross trade messages (P): a proxy for non-displayed activity
+  std::uint64_t tax_r_rem_odd = 0, tax_w_rem_odd = 0, tax_ahead_all_odd_rem = 0;  // odd-lot tests on the REMAINING size
+  Dims dims;
   // Taxonomy of continuous-hours priority mismatches (same-price case). R = order the exchange executed,
   // W = order our FIFO would have executed instead.
   std::uint64_t tax_ahead_all_odd = 0, tax_ahead_has_round = 0;  // orders ahead of R at that price (by arrival): all odd lots / at least one round lot
@@ -76,6 +90,8 @@ struct ValidateConfig {
   bool replace_reduction_keeps_priority = false;
   /// Experiment: treat a partial cancel (X) as losing queue priority (cancel + re-add at the back).
   bool partial_cancel_loses_priority = false;
+  /// Experiment: apply executions that share a timestamp (one match event) in queue order instead of feed order.
+  bool group_executions = false;
   /// If non-empty, only these symbols are processed (other order messages are skipped).
   std::set<std::string> only_symbols;
   /// Called for every operation applied to the engine under test (adds, cancels, modifies, the IOC
@@ -115,6 +131,8 @@ class Validator {
   std::uint64_t system_event_ts(char code) const;
   std::array<std::uint64_t, 256> counts_by_type() const { return by_type_; }
   std::string to_json(const std::string& file_label) const;
+  /// One CSV line per symbol (header first): activity and continuous-hours priority counts.
+  std::string symbols_csv() const;
   /// FNV digest of the symbol's final resting book (levels best first, orders in priority order).
   std::uint64_t book_digest(const std::string& symbol) const;
 
@@ -139,6 +157,9 @@ class Validator {
   void rebuild(Symbol& s);
   void compare_reference(Symbol& s);
   void emit_op(const Symbol& s, const lob::Op& op);
+  void process(const Message& m);
+  void flush_group();
+  void record_dims(Symbol& s, std::int64_t price, std::uint64_t ts, bool mismatch);
 
   ValidateConfig cfg_;
   std::unordered_map<std::uint16_t, std::unique_ptr<Symbol>> syms_;
@@ -148,6 +169,7 @@ class Validator {
   int phase_ = 0;  // 0 pre-market, 1 market hours, 2 post
   std::uint64_t seq_ = 0, ioc_id_ = 1ULL << 62, first_ts_ = 0, last_ts_ = 0;
   std::vector<Example> examples_;
+  std::vector<Message> group_;
   std::unordered_map<std::uint64_t, std::uint64_t> renamed_;  // engine id -> current ITCH reference (in-place replaces only)
 };
 

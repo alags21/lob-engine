@@ -29,6 +29,9 @@ struct Message {
   char code = 0;                ///< S: event code; H: trading state; Q: cross type
   bool printable = true;        ///< C only
   char stock[9] = {0};          ///< symbol, right-trimmed (R H A F P Q)
+  char etp = 0;                 ///< R: ETP flag ('Y', 'N' or ' ')
+  char category = 0;            ///< R: market category
+  std::uint32_t round_lot = 0;  ///< R: round lot size
 
   friend bool operator==(const Message& a, const Message& b) {
     return a.type == b.type && a.locate == b.locate && a.ts_ns == b.ts_ns && a.ref == b.ref && a.new_ref == b.new_ref &&

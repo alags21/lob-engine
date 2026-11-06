@@ -9,7 +9,18 @@
 
 namespace lob::itch {
 
+Dims& Dims::operator+=(const Dims& o) {
+  for (int i = 0; i < 24; ++i) hour[i] += o.hour[i];
+  for (int i = 0; i < 5; ++i) since_open[i] += o.since_open[i];
+  for (int i = 0; i < 2; ++i) { near_close[i] += o.near_close[i]; etp[i] += o.etp[i]; after_resume[i] += o.after_resume[i]; }
+  for (int i = 0; i < 4; ++i) { price[i] += o.price[i]; gap[i] += o.gap[i]; }
+  return *this;
+}
+
 Stats& Stats::operator+=(const Stats& o) {
+  dims += o.dims;
+  p_shares += o.p_shares;
+  tax_r_rem_odd += o.tax_r_rem_odd; tax_w_rem_odd += o.tax_w_rem_odd; tax_ahead_all_odd_rem += o.tax_ahead_all_odd_rem;
   messages += o.messages; adds += o.adds; deletes += o.deletes; partial_cancels += o.partial_cancels; replaces += o.replaces;
   exec_e += o.exec_e; exec_c += o.exec_c; c_not_printable += o.c_not_printable; c_price_differs += o.c_price_differs;
   trades_p += o.trades_p; crosses_q += o.crosses_q; trading_actions += o.trading_actions; exec_shares += o.exec_shares;
@@ -40,6 +51,9 @@ struct Validator::Symbol {
   std::unordered_set<std::uint64_t> live;
   std::unordered_map<std::uint64_t, std::uint64_t> pending_w;  // ITCH ref of a skipped-ahead order -> mismatch timestamp
   char state = 'T';
+  std::uint32_t round_lot = 100;
+  bool etp = false;
+  std::uint64_t prev_ts = 0, gap_ns = 0, open_ts = 0, resume_ts = 0;
   bool opened = false, closed = false, diverged = false, selected = true;
   std::uint64_t msgs = 0;
 
@@ -61,6 +75,19 @@ Validator::Symbol& Validator::sym(std::uint16_t locate) {
     p->make_book();
   }
   return *p;
+}
+
+void Validator::record_dims(Symbol& s, std::int64_t price, std::uint64_t ts, bool mm) {
+  Dims& d = s.stats.dims;
+  auto bump = [&](Dim& x) { ++x.checked; x.mismatched += mm; };
+  bump(d.hour[std::min<std::uint64_t>(23, ts / 3600000000000ULL)]);
+  const std::uint64_t since = s.open_ts && ts >= s.open_ts ? ts - s.open_ts : 0;
+  bump(d.since_open[since < 1000000000ULL ? 0 : since < 10000000000ULL ? 1 : since < 60000000000ULL ? 2 : since < 600000000000ULL ? 3 : 4]);
+  bump(d.near_close[ts >= 57300ULL * 1000000000ULL ? 1 : 0]);
+  bump(d.etp[s.etp ? 1 : 0]);
+  bump(d.price[price < 100000 ? 0 : price < 500000 ? 1 : price < 2000000 ? 2 : 3]);
+  bump(d.gap[s.gap_ns < 10000 ? 0 : s.gap_ns < 100000 ? 1 : s.gap_ns < 1000000 ? 2 : 3]);
+  bump(d.after_resume[s.resume_ts && ts >= s.resume_ts && ts - s.resume_ts < 10000000000ULL ? 1 : 0]);
 }
 
 void Validator::emit_op(const Symbol& s, const lob::Op& op) {
@@ -224,8 +251,10 @@ void Validator::execute(Symbol& s, const Message& m) {
     std::vector<Event> trades;
     for (const auto& e : s.ev)
       if (e.type == EventType::Trade) trades.push_back(e);
-    const bool ok = trades.size() == 1 && trades[0].maker_id == eid && trades[0].price == o.price &&
+    const bool ok_pre = trades.size() == 1 && trades[0].maker_id == eid && trades[0].price == o.price &&
                     trades[0].qty == static_cast<Qty>(executed);
+    const bool ok = ok_pre;
+    if (b == kContinuous) record_dims(s, o.price, m.ts_ns, !ok);
     if (ok) {
       ++s.stats.exec_ok[b];
     } else {
@@ -243,21 +272,23 @@ void Validator::execute(Symbol& s, const Message& m) {
         const auto oi = orders_.find(key);
         if (oi != orders_.end()) other = &oi->second;
       }
-      if (o.original < 100 || (other && other->original < 100)) ++s.stats.mismatch_odd_lot[b];
+      if (o.original < s.round_lot || (other && other->original < s.round_lot)) ++s.stats.mismatch_odd_lot[b];
       if (b == kContinuous && other && kind == kSamePriceOtherOrder) {
-        const bool ro = o.original < 100, wo = other->original < 100;
+        const bool ro = o.original < s.round_lot, wo = other->original < s.round_lot;
+        s.stats.tax_r_rem_odd += o.remaining < s.round_lot;
+        s.stats.tax_w_rem_odd += other->remaining < s.round_lot;
         {
-          bool has_round = false;
+          bool has_round = false, has_round_rem = false;
           for (std::uint64_t lr : s.live) {
             const Order& q = orders_.at(lr);
             if (&q == &o || q.side != o.side || q.price != o.price || !q.booked || q.seq >= o.seq) continue;
-            if (q.original >= 100) {
-              has_round = true;
-              break;
-            }
+            if (q.remaining >= s.round_lot) has_round_rem = true;
+            if (q.original >= s.round_lot) has_round = true;
+            if (has_round && has_round_rem) break;
           }
           if (has_round) ++s.stats.tax_ahead_has_round;
           else ++s.stats.tax_ahead_all_odd;
+          if (!has_round_rem) ++s.stats.tax_ahead_all_odd_rem;
         }
         s.stats.tax_r_attributed += o.attributed;
         s.stats.tax_w_attributed += other->attributed;
@@ -319,18 +350,49 @@ void Validator::on_message(const Message& m) {
     else if (m.code == 'M') phase_ = 2;
     return;
   }
+  if (cfg_.group_executions && (m.type == 'E' || m.type == 'C')) {
+    if (!group_.empty() && (group_.front().ts_ns != m.ts_ns || group_.front().locate != m.locate)) flush_group();
+    group_.push_back(m);
+    return;
+  }
+  flush_group();
+  process(m);
+}
+
+void Validator::flush_group() {
+  if (group_.empty()) return;
+  if (group_.size() > 1) {
+    auto key = [&](const Message& x) {
+      const auto it = orders_.find(x.ref);
+      if (it == orders_.end()) return std::make_tuple('?', std::int64_t{0}, std::uint64_t{0});
+      const Order& q = it->second;
+      return std::make_tuple(q.side, q.side == 'S' ? q.price : -q.price, q.seq);
+    };
+    std::stable_sort(group_.begin(), group_.end(), [&](const Message& a, const Message& b) { return key(a) < key(b); });
+  }
+  std::vector<Message> g;
+  g.swap(group_);
+  for (const auto& x : g) process(x);
+}
+
+void Validator::process(const Message& m) {
   Symbol& s = sym(m.locate);
   if (m.type != 'R' && !s.selected) return;
+  s.gap_ns = s.prev_ts && m.ts_ns >= s.prev_ts ? m.ts_ns - s.prev_ts : 1000000000ULL;
+  s.prev_ts = m.ts_ns;
   ++s.stats.messages;
   ++s.msgs;
   switch (m.type) {
     case 'R':
       s.name = m.stock;
+      s.round_lot = m.round_lot ? m.round_lot : 100;
+      s.etp = m.etp == 'Y';
       s.selected = cfg_.only_symbols.empty() || cfg_.only_symbols.count(s.name) > 0;
       if (cfg_.reference_symbols.count(s.name) && !s.ref) s.ref = std::make_unique<lob::ref::ReferenceBook>();
       break;
     case 'H':
       ++s.stats.trading_actions;
+      if (s.state != 'T' && m.code == 'T') s.resume_ts = m.ts_ns;
       s.state = m.code;
       break;
     case 'A':
@@ -476,10 +538,14 @@ void Validator::on_message(const Message& m) {
       break;
     case 'P':
       ++s.stats.trades_p;
+      s.stats.p_shares += m.qty;
       break;
     case 'Q':
       ++s.stats.crosses_q;
-      if (m.code == 'O') s.opened = true;
+      if (m.code == 'O') {
+        s.opened = true;
+        s.open_ts = m.ts_ns;
+      }
       else if (m.code == 'C') s.closed = true;
       break;
     default: break;
@@ -488,6 +554,7 @@ void Validator::on_message(const Message& m) {
 }
 
 void Validator::finish() {
+  flush_group();
   for (auto& [loc, s] : syms_) {
     s->stats.tax_w_pending_end += s->pending_w.size();
     s->pending_w.clear();
@@ -554,13 +621,53 @@ void stats_json(std::ostringstream& o, const Stats& s) {
   o << "},\"events_on_unbooked_orders\":" << s.events_on_unbooked << ",\"book_rebuilds_after_disagreement\":" << s.rebuilds
     << ",\"reference_comparisons\":" << s.ref_compares << ",\"reference_level_mismatches\":" << s.ref_level_mismatch
     << ",\"reference_queue_order_mismatches\":" << s.ref_queue_mismatch
-    << ",\"continuous_same_price_mismatch_taxonomy\":{\"orders_ahead_of_executed_all_odd_lots\":" << s.tax_ahead_all_odd << ",\"orders_ahead_of_executed_include_a_round_lot\":" << s.tax_ahead_has_round << ",\"executed_order_is_attributed_F\":" << s.tax_r_attributed << ",\"skipped_order_is_attributed_F\":" << s.tax_w_attributed << ",\"executed_order_created_by_replace_U\":" << s.tax_r_from_replace << ",\"skipped_order_created_by_replace_U\":" << s.tax_w_from_replace << ",\"executed_order_is_odd_lot\":" << s.tax_r_odd << ",\"skipped_order_is_odd_lot\":" << s.tax_w_odd
+    << ",\"continuous_same_price_mismatch_taxonomy\":{\"skipped_or_executed_by_remaining_size_odd\":{\"executed_remaining_odd\":" << s.tax_r_rem_odd << ",\"skipped_remaining_odd\":" << s.tax_w_rem_odd << ",\"all_orders_ahead_odd_by_remaining\":" << s.tax_ahead_all_odd_rem << "},\"orders_ahead_of_executed_all_odd_lots\":" << s.tax_ahead_all_odd << ",\"orders_ahead_of_executed_include_a_round_lot\":" << s.tax_ahead_has_round << ",\"executed_order_is_attributed_F\":" << s.tax_r_attributed << ",\"skipped_order_is_attributed_F\":" << s.tax_w_attributed << ",\"executed_order_created_by_replace_U\":" << s.tax_r_from_replace << ",\"skipped_order_created_by_replace_U\":" << s.tax_w_from_replace << ",\"executed_order_is_odd_lot\":" << s.tax_r_odd << ",\"skipped_order_is_odd_lot\":" << s.tax_w_odd
     << ",\"both_round_lot\":" << s.tax_both_round << ",\"gap_between_the_two_adds_le_1us\":" << s.tax_gap_le_1us << ",\"gap_le_1ms\":" << s.tax_gap_le_1ms
     << ",\"gap_le_1s\":" << s.tax_gap_le_1s << ",\"gap_gt_1s\":" << s.tax_gap_gt_1s << ",\"skipped_order_then_executed_within_1us\":" << s.tax_w_exec_le_1us
     << ",\"skipped_order_then_executed_within_1ms\":" << s.tax_w_exec_le_1ms << ",\"skipped_order_then_executed_later\":" << s.tax_w_exec_later
     << ",\"skipped_order_then_cancelled_or_modified\":" << s.tax_w_changed << ",\"skipped_order_still_resting_at_end\":" << s.tax_w_pending_end << "}}";
 }
 }  // namespace
+
+namespace {
+void dims_json(std::ostringstream& o, const Dims& d) {
+  auto arr = [&](const char* name, const Dim* x, int n) {
+    o << "\"" << name << "\":[";
+    for (int i = 0; i < n; ++i) o << (i ? "," : "") << "{\"checked\":" << x[i].checked << ",\"mismatched\":" << x[i].mismatched << "}";
+    o << "]";
+  };
+  o << "{";
+  arr("by_hour_of_day", d.hour, 24);
+  o << ",";
+  arr("by_time_since_symbol_opening_cross_lt1s_lt10s_lt60s_lt10min_rest", d.since_open, 5);
+  o << ",";
+  arr("by_session_end_before_1555_from_1555", d.near_close, 2);
+  o << ",";
+  arr("by_etp_flag_no_yes", d.etp, 2);
+  o << ",";
+  arr("by_price_lt10usd_lt50_lt200_ge200", d.price, 4);
+  o << ",";
+  arr("by_gap_since_previous_message_of_symbol_lt10us_lt100us_lt1ms_ge1ms", d.gap, 4);
+  o << ",";
+  arr("by_within_10s_after_trading_resume_no_yes", d.after_resume, 2);
+  o << "}";
+}
+}  // namespace
+
+std::string Validator::symbols_csv() const {
+  std::ostringstream o;
+  o << "symbol,etp,round_lot,messages,adds,executions,trades_P,shares_P,exec_shares,continuous_checked,continuous_mismatched\n";
+  for (const auto& sv : symbols()) {
+    (void)sv;
+  }
+  for (const auto& [loc, sp] : syms_) {
+    const Stats& t = sp->stats;
+    std::uint64_t mm = 0;
+    for (int k = 0; k < kMismatchKinds; ++k) mm += t.mismatch[kContinuous][k];
+    o << sp->name << ',' << (sp->etp ? 1 : 0) << ',' << sp->round_lot << ',' << t.messages << ',' << t.adds << ',' << (t.exec_e + t.exec_c) << ',' << t.trades_p << ',' << t.p_shares << ',' << t.exec_shares << ',' << t.exec_checked[kContinuous] << ',' << mm << '\n';
+  }
+  return o.str();
+}
 
 std::string Validator::to_json(const std::string& file_label) const {
   std::ostringstream o;
@@ -579,7 +686,11 @@ std::string Validator::to_json(const std::string& file_label) const {
       first = false;
     }
   o << "},\"total\":";
-  stats_json(o, total());
+  const Stats tot = total();
+  stats_json(o, tot);
+  o << ",\"continuous_dimensions\":";
+  dims_json(o, tot.dims);
+  o << ",\"shares_in_P_trades\":" << tot.p_shares;
   const auto syms = symbols();
   std::uint64_t opened = 0, diverged = 0;
   for (const auto& s : syms) {

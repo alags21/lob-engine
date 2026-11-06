@@ -62,7 +62,12 @@ ParseStatus parse(const std::uint8_t* p, std::size_t len, Message& m) {
   const std::uint8_t* b = p + 11;  // body after the common 11-byte header
   switch (t) {
     case 'S': m.code = static_cast<char>(b[0]); break;
-    case 'R': get_stock(b, m.stock); break;  // remaining directory fields are not used
+    case 'R':
+      get_stock(b, m.stock);
+      m.category = static_cast<char>(b[8]);
+      m.round_lot = static_cast<std::uint32_t>(be(b + 10, 4));
+      m.etp = static_cast<char>(b[22]);
+      break;
     case 'H':
       get_stock(b, m.stock);
       m.code = static_cast<char>(b[8]);

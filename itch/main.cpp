@@ -154,6 +154,7 @@ int cmd_validate(const Args& a) {
   cfg.compare_every = a.num("compare-every", 2000);
   cfg.replace_reduction_keeps_priority = a.num("replace-keeps-priority", 0) != 0;
   cfg.partial_cancel_loses_priority = a.num("x-loses-priority", 0) != 0;
+  cfg.group_executions = a.num("group-executions", 0) != 0;
   cfg.only_symbols = split_csv(a.get("only"));
   const std::uint64_t max_messages = a.num("max-messages", 0);
   Validator v(cfg);
@@ -189,9 +190,10 @@ int cmd_validate(const Args& a) {
   std::ostringstream extra;
   extra << ",\"decoded_messages\":" << n << ",\"unknown_type_messages_skipped\":" << unknown << ",\"malformed_messages\":" << malformed
         << ",\"truncated_final_frame\":" << (fr.truncated() ? "true" : "false") << ",\"validate_seconds_including_decompression\":" << secs
-        << ",\"compare_every\":" << cfg.compare_every << ",\"replace_reduction_keeps_priority\":" << (cfg.replace_reduction_keeps_priority ? "true" : "false") << "}";
+        << ",\"compare_every\":" << cfg.compare_every << ",\"group_executions\":" << (cfg.group_executions ? "true" : "false") << ",\"partial_cancel_loses_priority\":" << (cfg.partial_cancel_loses_priority ? "true" : "false") << ",\"replace_reduction_keeps_priority\":" << (cfg.replace_reduction_keeps_priority ? "true" : "false") << "}";
   const std::string out = a.get("json");
   if (!out.empty()) write_file(out, json + extra.str());
+  if (!a.get("symbols-csv").empty()) write_file(a.get("symbols-csv"), v.symbols_csv());
   std::printf("validate: %llu messages in %.1f s\n", static_cast<unsigned long long>(n), secs);
   return 0;
 }

@@ -17,7 +17,7 @@ namespace {
 struct Bytes {
   std::vector<std::uint8_t> v;
   Bytes& u(std::uint64_t x, int n) {
-    for (int i = n - 1; i >= 0; --i) v.push_back(static_cast<std::uint8_t>((x >> (8 * i)) & 0xff));
+    for (int i = n - 1; i >= 0; --i) v.push_back(i < 8 ? static_cast<std::uint8_t>((x >> (8 * i)) & 0xff) : 0);
     return *this;
   }
   Bytes& c(char ch) { return u(static_cast<unsigned char>(ch), 1); }
