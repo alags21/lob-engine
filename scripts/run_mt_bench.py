@@ -9,7 +9,7 @@ import argparse, os, platform, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import run_bench as rb  # noqa: E402
 
-KINDS = ["single-thread", "mutex-book", "mutex-cv-queue", "spsc", "spsc-yield", "spsc-backoff", "spsc-unpadded"]
+KINDS = ["single-thread", "mutex-book", "mutex-cv-queue", "spsc", "spsc-yield", "spsc-backoff", "spsc-unpadded", "spsc-slot64"]
 NOCB = ["single-thread", "mutex-cv-queue", "spsc"]  # also measured with the event callback disabled
 
 

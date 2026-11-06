@@ -6,7 +6,8 @@
 //
 // KIND: single-thread (no queue; the Stage 3 ceiling), mutex-book (producer applies each op under
 // a std::mutex), mutex-cv-queue (bounded mutex+condvar queue), spsc (lock-free ring, spin wait),
-// spsc-yield, spsc-backoff (wait-strategy comparison), spsc-unpadded (false-sharing ablation).
+// spsc-yield, spsc-backoff (wait-strategy comparison), spsc-unpadded (false-sharing ablation),
+// spsc-slot64 (each slot padded/aligned to one cache line).
 //
 // Two measurements per repetition, always on a fresh book and queue:
 //  * throughput mode: the producer pushes as fast as the queue admits (queue saturates);
@@ -56,6 +57,10 @@
 #include <cpuid.h>
 #include <x86intrin.h>
 #endif
+#endif
+
+#if defined(_MSC_VER)
+#pragma warning(disable : 4324)  // padded due to alignment specifier (intended)
 #endif
 
 #include "lob/checksum.hpp"
@@ -259,22 +264,31 @@ struct Item {
   std::uint64_t ts;  // intended send time (TSC) in latency mode, else 0
 };
 
-template <bool Padded>
+// Same payload, but each slot occupies exactly one cache line, so the producer filling slot i+1 never
+// touches the line the consumer is reading slot i from.
+struct alignas(kCacheLine) AlignedItem {
+  Op op;
+  std::uint64_t ts;
+};
+
+template <bool Padded, class ItemT = Item>
 struct SpscAdapter {
-  SpscQueue<Item, Padded> q;
+  using Elem = ItemT;
+  SpscQueue<ItemT, Padded> q;
   Wait wait;
   SpscAdapter(std::size_t cap, Wait w) : q(cap), wait(w) {}
-  void push(const Item& it) {
+  void push(const ItemT& it) {
     Waiter w{wait};
     while (!q.try_push(it)) w();
   }
-  void pop(Item& it) {
+  void pop(ItemT& it) {
     Waiter w{wait};
     while (!q.try_pop(it)) w();
   }
 };
 
 struct CvAdapter {
+  using Elem = Item;
   MutexQueue<Item> q;
   explicit CvAdapter(std::size_t cap) : q(cap) {}
   void push(const Item& it) { q.push(it); }
@@ -345,7 +359,7 @@ static PassOut queue_pass(Adapter& ad, const std::vector<Op>& ops, const PassCfg
   std::thread consumer([&] {
     pin_this_thread(cfg.cpu_b);
     while (!go.load(std::memory_order_acquire)) cpu_relax();
-    Item it;
+    typename Adapter::Elem it;
     for (std::size_t i = 0; i < ops.size(); ++i) {
       ad.pop(it);
       apply(book, it.op);
@@ -360,7 +374,7 @@ static PassOut queue_pass(Adapter& ad, const std::vector<Op>& ops, const PassCfg
   const std::uint64_t base = cycles() + 2000000;  // small lead so the first op is not late
   go.store(true, std::memory_order_release);
   for (std::size_t i = 0; i < ops.size(); ++i) {
-    Item it{ops[i], 0};
+    typename Adapter::Elem it{ops[i], 0};
     if (cfg.latency) {
       const std::uint64_t intended = base + i * period;
       if (pace(intended, period)) ++behind;
@@ -418,6 +432,10 @@ static PassOut run_pass(const std::string& kind, const std::vector<Op>& ops, con
   }
   if (kind == "spsc" || kind == "spsc-yield" || kind == "spsc-backoff") {
     SpscAdapter<true> ad(cap, kind == "spsc" ? Wait::Spin : kind == "spsc-yield" ? Wait::Yield : Wait::Backoff);
+    return queue_pass(ad, ops, cfg, hash);
+  }
+  if (kind == "spsc-slot64") {
+    SpscAdapter<true, AlignedItem> ad(cap, Wait::Spin);
     return queue_pass(ad, ops, cfg, hash);
   }
   if (kind == "spsc-unpadded") {

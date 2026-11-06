@@ -34,6 +34,13 @@ jobs:
         run: |
           build/bench/lob_bench --workload passive --ops 20000 --reps 1 --out /tmp/smoke_passive.json
           build/bench/lob_bench --workload aggressive --ops 20000 --reps 1 --out /tmp/smoke_aggressive.json
+      - name: Multi-threaded pipeline smoke run (checksum gate vs single thread; timings are not used)
+        if: matrix.build_type == 'Release'
+        timeout-minutes: 10
+        run: |
+          for q in single-thread mutex-book mutex-cv-queue spsc spsc-yield spsc-backoff spsc-unpadded; do
+            build/bench/lob_mt_bench --queue $q --workload balanced --ops 30000 --reps 1 --rate 200000 --out /tmp/mt_$q.json
+          done
       - name: Differential fuzz (Release, 1.5M ops, seeds printed)
         if: matrix.build_type == 'Release'
         run: |
@@ -79,3 +86,27 @@ jobs:
           name: fuzz-fail-sanitizers
           path: fuzz-out/
           if-no-files-found: ignore
+
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev clang
+      - name: Work around TSan and high ASLR entropy
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLOB_TSAN=ON -DLOB_WERROR=ON -DCMAKE_CXX_COMPILER=clang++
+      - name: Build
+        run: cmake --build build
+      - name: Queue, stress and pipeline tests under TSan
+        run: build/tests/lob_tests --gtest_filter='SpscQueue.*:SpscStress.*:MutexQueueStress.*:Pipeline.*'
+      - name: Multi-threaded benchmark under TSan (small, checksum gate)
+        run: |
+          for q in mutex-book mutex-cv-queue spsc spsc-unpadded; do
+            build/bench/lob_mt_bench --queue $q --workload balanced --ops 20000 --reps 1 --rate 100000 --out /tmp/tsan_$q.json
+          done
