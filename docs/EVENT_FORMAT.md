@@ -43,3 +43,49 @@ diff out.events tests/data/golden.events
 
 The fuzzer's failure output prints the seed and op index; the written `fuzz-fail-seed<S>.log` is a
 valid op log and can be fed straight to `lob_replay`.
+
+## Timed op streams (CSV, JSON lines)
+
+Used by the synthetic market generator and by `lob_replay`. Same ops as the text op log, plus a
+timestamp in nanoseconds (strictly increasing in generated runs).
+
+CSV, header `t_ns,op,id,side,type,tif,price,qty`, one op per line:
+
+```
+t_ns,op,id,side,type,tif,price,qty
+1822,S,1,B,L,GTC,9994,12
+2450,C,1,,,,,
+9100,M,7,,,,9995,4
+```
+
+`op` is `S` (submit), `C` (cancel) or `M` (modify). `side` is `B`/`S`, `type` is `L`/`M`, `tif` is
+`GTC`/`IOC`/`FOK`; these three are empty for cancel and modify, and `price`/`qty` are empty for
+cancel. JSON lines carry the same fields as flat objects, for example
+`{"t":1822,"op":"S","id":1,"side":"B","type":"L","tif":"GTC","price":9994,"qty":12}`
+(`side`, `type`, `tif` omitted for `C` and `M`; `price` and `qty` omitted for `C`).
+Lines starting with `#` and blank lines are ignored.
+
+```
+lob_sim --seed 7 --ops 8000 --csv run.csv --jsonl run.jsonl        # generate and export ops
+lob_replay run.csv                                                 # print events
+lob_replay --json run.json --snapshot-every 8 --levels 15 run.csv  # replay and export a run
+```
+
+## Run export (`lob-run-v1`, JSON) for the visualizer
+
+Written by `lob_sim --json/--js` and `lob_replay --json/--js`. All numbers are integers except the
+generator fractions in `meta`. The `--js` variant is the same JSON assigned to `window.LOB_RUN`, so
+a page can load it with a `<script>` tag from `file://`.
+
+- `meta`: `source` (`simulated` or `replay`), generator config (seed, arrival rate, cancel and modify
+  fractions, aggressiveness, depth distribution, ...), `snapshot_every`, `depth_levels`,
+  `duration_ns`, `counts` (submits, cancels, modifies, events, trades, rejects) and `checksum`
+  (hash of every event and the final book, `include/lob/checksum.hpp`).
+- `ops`: `[t_ns, kind, id, side, type, tif, price, qty]` with kind 0/1/2 = submit/cancel/modify, side
+  0/1 = buy/sell, type 0/1 = limit/market, tif 0/1/2 = GTC/IOC/FOK.
+- `events`: `[op_index, type, order_id, maker_id, side, price, qty, aux]`, type 0..4 = accepted,
+  rejected, trade, cancelled, modified; `aux` is the reject reason, cancel reason or lost-priority flag.
+  For a trade, `order_id` is the taker, `side` the taker's side and `price` the maker's price.
+- `snapshots`: `[op_index, t_ns, bids, asks]`, state after `op_index` ops, each side a best-first list
+  of `[price, qty, orders]` limited to `depth_levels` levels. The first snapshot is op 0 (empty
+  book) and the last is the final state.

@@ -7,7 +7,7 @@
 | 2 | Correctness harness | in review (CI green) | #3 |
 | 3 | Performance | in review | PR pending |
 | 4 | Concurrency | in review | #5 |
-| 5 | Replay and visualizer | not started | |
+| 5 | Replay and visualizer | in review | PR pending |
 | 6 | Polish | not started | |
 
 ## Built
@@ -100,10 +100,25 @@ slot-aligned SPSC variants; with and without the event callback), a TSan CI job,
 `docs/CONCURRENCY.md` generated from `bench/results/stage4/*.json`. Every benchmark run first
 asserts that the multi-threaded event stream and final book checksum equal the single-thread run.
 
+Stage 5: seeded synthetic market generator (`lob_sim`; configurable arrival rate, cancel/modify rates,
+aggressiveness, price-level distribution), CSV/JSON-lines/oplog replay driver (`lob_replay`) and the
+`lob-run-v1` JSON export (ops, all events, periodic book snapshots), and a static offline visualizer in
+`viz/` (depth chart, trade tape, mid/spread, order-flow stats, latency histograms from saved bench
+results, playback controls) with a committed sample run and regeneration script
+(`scripts/make_viz_data.py`). New tests: 10 C++ cases (determinism and cross-platform checksum, knob
+effects, replay IO round trips, export structure; 92 ctest cases in total) and 14 Node checks for the
+viz. Verified visually only by a headless Edge screenshot on Windows (`docs/img/viz-sample.png`).
+
 ## Next
-Stage 5: replay and visualizer. Starts only after approval.
+Stage 6: polish (README with architecture diagram and generated tables, DESIGN tradeoffs, limitations,
+tag v0.1.0). Starts only after approval.
 
 ## Known gaps
+- Stage 5: the visualizer was checked in one real browser (Edge, headless, dark theme, desktop width)
+  plus Node mock-canvas tests; other browsers, light theme, narrow screens and touch are untested. The
+  book animates at snapshot granularity (every 8 ops in the sample), not per op. The "Load run" file
+  control is a hidden input behind a label (not keyboard reachable).
+- Stage 5: the Pages workflow is manual-only and has never run; Pages is not enabled.
 - Core types: this CPU mixes two Windows efficiency classes. Stage 3 results were pinned to a
   lower-class core; Stage 4 results to two cores of the higher class. A re-run of the Stage 3
   baseline and final binaries on a higher-class core is in docs/PERFORMANCE.md ("Core-type check").

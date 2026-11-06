@@ -119,3 +119,37 @@ jobs:
           fi
           grep -q "ThreadSanitizer: data race" racy.log
           echo "TSan reported the deliberate race as expected:"; grep -m3 "ThreadSanitizer" racy.log
+
+  viz:
+    name: Visualizer and generated data
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev
+      - name: Build lob_sim and lob_replay
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLOB_BUILD_TESTS=OFF -DLOB_BUILD_BENCH=OFF
+          cmake --build build --target lob_sim lob_replay
+      - name: Sample run regenerates byte-identically on Linux (cross-platform determinism)
+        run: python3 scripts/make_viz_data.py --sim "$PWD/build/tools/lob_sim" --check
+      - name: Generated reports are up to date
+        run: |
+          python3 scripts/make_report.py --check
+          python3 scripts/make_mt_report.py --check
+      - name: Replay round trip (CSV and JSON lines give the same checksum as the generator)
+        run: |
+          build/tools/lob_sim --seed 3 --ops 3000 --csv /tmp/r.csv --jsonl /tmp/r.jsonl --json /tmp/r_sim.json | tee /tmp/sim.txt
+          build/tools/lob_replay --json /tmp/r_csv.json /tmp/r.csv | tee /tmp/csv.txt
+          build/tools/lob_replay --json /tmp/r_jsonl.json /tmp/r.jsonl | tee /tmp/jsonl.txt
+          sim=$(grep -o 'checksum=[0-9a-f]*' /tmp/sim.txt)
+          grep -q "$sim" /tmp/csv.txt
+          grep -q "$sim" /tmp/jsonl.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Visualizer tests (mock canvas, fake DOM, static checks)
+        run: node viz/test/viz_test.js

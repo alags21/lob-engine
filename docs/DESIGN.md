@@ -165,5 +165,37 @@ Throughput is measured separately with an unpaced producer.
 and a small run of the multi-threaded benchmark. TSan is not available with MSVC, so it has never
 been run on the Windows development machine; Windows only runs the plain tests and benchmarks.
 
+## Stage 5: replay and visualizer
+- **Synthetic market** (`include/lob/market_sim.hpp`): Poisson arrivals, a hidden fundamental price
+  doing a +-1 tick walk, passive quotes placed around it with a configurable depth distribution
+  (geometric, uniform, two-scale fat tail), configurable cancel/modify fractions and aggressiveness
+  (market, IOC, FOK and marketable GTC orders). Cancels and modifies read the book, so they always
+  target live orders. Only synthetic data is used; nothing is downloaded.
+- **Determinism**: the generator uses only integer arithmetic and IEEE `+ - * /` (its own series
+  `log()` for the exponential gaps, no libm), so a config produces the identical run on every
+  platform. A unit test pins the checksum of one config, and CI regenerates the committed sample on
+  Linux and fails if it differs from the file generated on Windows.
+- **Recorder / export**: `Recorder` applies timed ops to the (optimised) book and records every
+  event plus a book snapshot every K ops (top N levels per side). `lob_replay` reads the text op log,
+  CSV or JSON lines and exports the same `lob-run-v1` JSON, so a recorded stream can be replayed and
+  visualised. Formats: `docs/EVENT_FORMAT.md`. The golden-log replay test still passes unchanged.
+- **Visualizer** (`viz/`): static HTML + canvas + plain JS, no build step, no CDN, no network
+  access. It shows an animated depth chart, trade tape, mid price with trades and spread over time,
+  order-flow stats and mix, and a latency histogram. Playback: play/pause, step (one snapshot),
+  speed, scrub, keyboard. The sample run and the latency data are loaded through `<script>` tags so
+  the page also works from `file://`; "Load run" opens other exports. The latency panel shows only
+  data copied from `bench/results/*.json` by `scripts/make_viz_data.py` (Stage 3 book steps and
+  Stage 4 queue variants) and is labelled as independent of the simulated run.
+- **Testing**: `viz/test/viz_test.js` (Node, no dependencies) loads the real sample and latency data,
+  checks the derived model against the counts in the export, drives every draw function at many
+  cursor positions against a mock canvas and fails on any NaN/Infinity coordinate, exercises the DOM
+  wiring (play, pause, step, scrub, speed, keyboard, selectors) against a fake DOM, and checks that
+  the page references only local files and no network URLs. A deliberately broken draw call makes it
+  fail. Pixels and layout are checked separately by screenshotting the page in a headless
+  Chromium-based browser (`scripts/screenshot_viz.py`, output `docs/img/viz-sample.png`); that was
+  done on Windows with Edge only. Not tested: other browsers, touch input, narrow screens.
+- **Pages**: `.github/workflows/pages.yml` can deploy `viz/` to GitHub Pages but is manual-trigger only
+  and Pages is not enabled by this repository; the owner has to enable it in the settings first.
+
 ## Decisions
 - No exceptions for expected failures; calls return `RejectReason`.
