@@ -24,7 +24,10 @@ button, select, .file { font: inherit; color: var(--text); background: var(--btn
 button:hover { border-color: var(--accent); }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #scrub { flex: 1 1 220px; min-width: 160px; accent-color: var(--accent); }
-.file input { display: none; }
+.file { position: relative; }
+/* visually hidden but still focusable, so "Load run" can be reached and activated with the keyboard */
+.file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.file:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
 .readout { margin: 6px 0 0; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 13px; }
 .status { margin: 2px 0 8px; color: var(--ask); min-height: 1em; }
 main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

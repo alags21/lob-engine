@@ -139,12 +139,44 @@ def pcore_section(data):
     return "\n".join(out) + "\n"
 
 
-def replace_block(path, name, body):
-    s = open(path, newline="").read().replace("\r\n", "\n")
+def replace_text(s, name, body):
+    """Replaces the generated block `name` in text `s`; text without that block is returned unchanged."""
     pat = re.compile(rf"(<!-- BEGIN GENERATED:{name} -->\n).*?(<!-- END GENERATED:{name} -->)", re.S)
-    if not pat.search(s):
-        return None
     return pat.sub(lambda m: m.group(1) + body + "\n" + m.group(2), s)
+
+
+def steps_table(data, steps):
+    """Speedup of every optimisation step over the baseline, per workload (medians)."""
+    labels = [l for l in sorted(data) if steps.get(l, {}).get("status") != "re-measure"]
+    base = labels[0]
+    lines = ["| step | change | " + " | ".join(WORKLOADS) + " |", "|---|---|" + "---|" * len(WORKLOADS)]
+    for lab in labels[1:]:
+        cells = []
+        for wl in WORKLOADS:
+            cells.append(f"{mops(data[lab][wl]) / mops(data[base][wl]):.2f}x" if wl in data[lab] and wl in data[base] else "-")
+        lines.append(f"| {lab} | {steps.get(lab, {}).get('title', '')}; {steps.get(lab, {}).get('status', '')} | " + " | ".join(cells) + " |")
+    rer = [l for l in sorted(data) if steps.get(l, {}).get("status") == "re-measure"]
+    if rer:
+        lab = rer[-1]
+        lines.append(f"| {lab} | unchanged baseline binary measured again (drift check) | " +
+                     " | ".join(f"{mops(data[lab][wl]) / mops(data[base][wl]):.2f}x" for wl in WORKLOADS if wl in data[lab]) + " |")
+    return "Speedup over the Stage 1 baseline (ratio of median throughput; the last row is the drift check, so differences smaller than its distance from 1.00x are not meaningful).\n\n" + "\n".join(lines)
+
+
+def fuzz_block():
+    """Differential-fuzz results copied from saved logs (docs/results/fuzz_*.txt). Counts only."""
+    out = ["Differential fuzz against the reference model (all with zero mismatches; every line is a PASS line saved in `docs/results/`):", ""]
+    for fname, title in (("fuzz_local_stage2.txt", "local, MSVC checked build"), ("fuzz_ci_stage2.txt", "CI, Stage 2 PR run")):
+        path = os.path.join(ROOT, "docs", "results", fname)
+        if not os.path.exists(path):
+            continue
+        for line in open(path):
+            m = re.search(r"(?:^(.*?) \| .*? \| )?PASS runs=(\d+) first_seed=(\d+) ops=(\d+) events=(\d+) trades=(\d+) max_resting=(\d+)", line)
+            if m:
+                who = (m.group(1) + ", ") if m.group(1) else ""
+                out.append(f"- {title}: {who}{m.group(2)} run(s) from seed {m.group(3)}, {int(m.group(4)):,} ops, {int(m.group(5)):,} events, "
+                           f"{int(m.group(6)):,} trades, largest book {int(m.group(7)):,} orders")
+    return "\n".join(out)
 
 
 def main():
@@ -167,11 +199,13 @@ def main():
         perf += f"\n**WARNING: checksum mismatch vs baseline: {bad}**\n"
     perf += pcore_section(data)
     outputs = {os.path.join(ROOT, "docs", "PERFORMANCE.md"): perf}
-    head = headline(data, steps)
+    blocks = {"perf": headline(data, steps), "perf-steps": steps_table(data, steps), "fuzz": fuzz_block()}
     for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):
-        new = replace_block(os.path.join(ROOT, path), "perf", head)
-        if new is not None:
-            outputs[os.path.join(ROOT, path)] = new
+        full = os.path.join(ROOT, path)
+        text = open(full, newline="").read().replace("\r\n", "\n")
+        for name, body in blocks.items():
+            text = replace_text(text, name, body)
+        outputs[full] = text
     changed = False
     for p, content in outputs.items():
         old = open(p, newline="").read().replace("\r\n", "\n") if os.path.exists(p) else None

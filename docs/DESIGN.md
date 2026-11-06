@@ -1,16 +1,19 @@
 # Design
 
-Skeleton. Filled in per stage; final tradeoffs in Stage 6.
+Design notes, written stage by stage and consolidated at the end: matching semantics, verification,
+performance, concurrency, replay and visualizer, then tradeoffs/rejected alternatives, invariants and
+limitations. Start with [Limitations](#limitations) before quoting any number.
 
 ## Layout
-- `include/lob/`: public headers.
+- `include/lob/`: public headers (order book, types, event log, SPSC and mutex queues, checksum, market simulator, replay IO).
 - `src/`: library implementation (`lob` target).
-- `tests/`: GoogleTest unit tests.
-- `bench/`: Google Benchmark targets (placeholder until Stage 3).
-- `tools/`: command-line tools (placeholder).
+- `tests/`: GoogleTest unit, stress, pipeline, fuzz and simulator tests; `tests/reference/` is the reference model.
+- `bench/`: single-thread (`lob_bench`) and multi-threaded (`lob_mt_bench`) benchmark harnesses, workloads, saved results.
+- `tools/`: `lob_replay`, `lob_sim`, `lob_cli`.
+- `viz/`: the static visualizer; `scripts/`: build, benchmark, report and data-generation scripts.
 
 ## Build options
-`LOB_BUILD_TESTS`, `LOB_BUILD_BENCH`, `LOB_BUILD_TOOLS`, `LOB_SANITIZE` (ASan+UBSan), `LOB_WERROR`.
+`LOB_BUILD_TESTS`, `LOB_BUILD_BENCH`, `LOB_BUILD_TOOLS`, `LOB_SANITIZE` (ASan+UBSan), `LOB_TSAN`, `LOB_RACY_DEMO` (tests only, off by default), `LOB_WERROR`.
 
 ## Stage 1: matching semantics
 - **Units**: price in integer ticks (`int64`, must be > 0), quantity in integer lots (`int64`, > 0).
@@ -32,11 +35,11 @@ Skeleton. Filled in per stage; final tradeoffs in Stage 6.
   Accepted, then Trades, then Cancelled for any IOC/market remainder or FOK kill. Rejected is
   emitted for failures instead of Accepted. Trade carries taker id, maker id, taker side, maker
   price, quantity.
-- **Storage (deliberately naive, replaced in Stage 3)**: `std::map<Price, Level>` per side
+- **Storage as first written (deliberately naive; replaced in Stage 3, see below)**: `std::map<Price, Level>` per side
   (bids `greater`), each level a `std::list` of resting orders plus a cached total, and an
   `unordered_map<OrderId, Locator>` holding a list iterator for O(log levels) cancel. Chosen for
-  obvious correctness; the Stage 3 benchmark will use it as the baseline.
-- **Not thread-safe**; concurrency arrives in Stage 4.
+  obvious correctness; it is the baseline of the Stage 3 benchmarks.
+- **Not thread-safe**; concurrency is handled outside the book (Stage 4).
 
 ## Stage 2: verification design
 - **Reference model** (`tests/reference/`): `std::map<Price, std::deque>` per side, no id index and
@@ -57,7 +60,7 @@ Skeleton. Filled in per stage; final tradeoffs in Stage 6.
   failure. FIFO cannot be derived from state alone, so it is covered by the differential queue
   comparison.
 - **Fuzzer sanity check**: with a deliberately broken FOK pre-check applied locally (not
-  committed), the fuzzer reported a mismatch at op 242 of seed 1.
+  committed), the fuzzer reported a mismatch immediately (the failure message names the op index and seed).
 - **Op log / event format**: see `docs/EVENT_FORMAT.md`. Text, one record per line, so logs diff
   cleanly and failing fuzz runs are replayable with `lob_replay`.
 
@@ -113,21 +116,11 @@ Stage 4, producer thread -> queue -> matching thread (medians of repeated runs; 
 | aggressive | 12.85 | 6.05 | 3.39 | 9.64 | 371021 | 463838 | 167277 |
 | balanced | 9.95 | 5.22 | 3.11 | 8.19 | 412628 | 1893520 | 148974 |
 
-- `passive`: SPSC beats the mutex+condvar queue on throughput (1.64x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 49% of the single-thread ceiling. Paced latency, median: p50 355 ns vs 970 ns for mutex+condvar; p50 355 ns vs 226 ns for mutex-book; p50 355 ns vs 198 ns for single-thread (no hand-off).
-  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 187261 ns and was behind schedule for 2.8% of ops. Paced p99 of the other rows: spsc 364113 ns, mutex+condvar 390838 ns, mutex-book 175498 ns; differences at that level are not reliable evidence about the queues.
-  - one-slot-per-cache-line variant: 6.02 vs 5.42 Mops/s (1.11x; CV 4.9% / 5.6%).
-  - padding ablation: padded 5.42 vs unpadded 4.86 Mops/s (1.12x); padding helped (CV 5.6% / 3.3%).
-  - wait strategy throughput: spsc 5.42, spsc-yield 8.13, spsc-backoff 5.70 Mops/s; paced p99: spsc 364113 ns, spsc-yield 1348150 ns, spsc-backoff 1341790 ns.
-- `aggressive`: SPSC beats the mutex+condvar queue on throughput (1.79x); does NOT beat the mutex-protected book on throughput (0.63x); reaches 47% of the single-thread ceiling. Paced latency, median: p50 323 ns vs 980 ns for mutex+condvar; p50 323 ns vs 198 ns for mutex-book; p50 323 ns vs 164 ns for single-thread (no hand-off).
-  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 113359 ns and was behind schedule for 2.4% of ops. Paced p99 of the other rows: spsc 371021 ns, mutex+condvar 463838 ns, mutex-book 167277 ns; differences at that level are not reliable evidence about the queues.
-  - one-slot-per-cache-line variant: 6.60 vs 6.05 Mops/s (1.09x; CV 4.1% / 2.0%).
-  - padding ablation: padded 6.05 vs unpadded 5.16 Mops/s (1.17x); padding helped (CV 2.0% / 6.4%).
-  - wait strategy throughput: spsc 6.05, spsc-yield 8.01, spsc-backoff 6.09 Mops/s; paced p99: spsc 371021 ns, spsc-yield 2154130 ns, spsc-backoff 441745 ns.
-- `balanced`: SPSC beats the mutex+condvar queue on throughput (1.68x); does NOT beat the mutex-protected book on throughput (0.64x); reaches 52% of the single-thread ceiling. Paced latency, median: p50 353 ns vs 988 ns for mutex+condvar; p50 353 ns vs 222 ns for mutex-book; p50 353 ns vs 186 ns for single-thread (no hand-off).
-  - tail latency is dominated by OS interference on this machine: the no-queue single-thread row has p99 141177 ns and was behind schedule for 2.9% of ops. Paced p99 of the other rows: spsc 412628 ns, mutex+condvar 1893520 ns, mutex-book 148974 ns; differences at that level are not reliable evidence about the queues.
-  - one-slot-per-cache-line variant: 5.89 vs 5.22 Mops/s (1.13x; CV 2.7% / 2.5%).
-  - padding ablation: padded 5.22 vs unpadded 4.66 Mops/s (1.12x); padding helped (CV 2.5% / 3.6%).
-  - wait strategy throughput: spsc 5.22, spsc-yield 7.01, spsc-backoff 5.32 Mops/s; paced p99: spsc 412628 ns, spsc-yield 2507160 ns, spsc-backoff 451755 ns.
+- `passive`: SPSC is 1.64x the mutex+condvar queue (a win) and 0.63x the mutex-protected book (a LOSS: the lock-only design with no hand-off is faster); it reaches 49% of the single-thread ceiling. Paced median latency 355 ns vs 970 ns (mutex+condvar) and 226 ns (mutex-book).
+- `aggressive`: SPSC is 1.79x the mutex+condvar queue (a win) and 0.63x the mutex-protected book (a LOSS: the lock-only design with no hand-off is faster); it reaches 47% of the single-thread ceiling. Paced median latency 323 ns vs 980 ns (mutex+condvar) and 198 ns (mutex-book).
+- `balanced`: SPSC is 1.68x the mutex+condvar queue (a win) and 0.64x the mutex-protected book (a LOSS: the lock-only design with no hand-off is faster); it reaches 52% of the single-thread ceiling. Paced median latency 353 ns vs 988 ns (mutex+condvar) and 222 ns (mutex-book).
+
+Tail latency (p99 and above) on this machine is dominated by OS interference; see docs/CONCURRENCY.md.
 <!-- END GENERATED:mt -->
 
 **SPSC ring (`include/lob/spsc_queue.hpp`)**: power-of-two capacity, free-running 64-bit indices,
@@ -196,6 +189,103 @@ been run on the Windows development machine; Windows only runs the plain tests a
   done on Windows with Edge only. Not tested: other browsers, touch input, narrow screens.
 - **Pages**: `.github/workflows/pages.yml` can deploy `viz/` to GitHub Pages but is manual-trigger only
   and Pages is not enabled by this repository; the owner has to enable it in the settings first.
+
+## Tradeoffs and what was rejected
+
+Each Stage 3 change was measured on three workloads and kept only if it helped; the table in
+[PERFORMANCE.md](PERFORMANCE.md) has the numbers. What follows is the reasoning, not new measurements.
+
+- **Intrusive order lists (step 1)**: on its own this was *not* a measurable win (within run-to-run
+  noise, and slightly slower on some workloads). It was kept anyway because the node pool needs
+  nodes that carry their own links, and because it removes a per-order allocation indirection. Had
+  it been judged purely on its own row it would have been dropped; that is called out in PROGRESS.
+- **Node pool (step 2)** helped modestly: it removes the system allocator from the hot path.
+- **Flat open-addressing id table (step 3)** was the largest single win: the standard
+  `std::unordered_map` allocates a node per order and chases pointers on every lookup.
+- **Contiguous sorted-vector price levels (step 4)** were kept; a *binary search* for the level helped
+  on some workloads and was within noise on others.
+- **Scan from the best level (step 5)** beat binary search because activity clusters at the touch.
+  The tradeoff is real: a book whose orders sit far from the touch would favour binary search, and
+  only three bundled workloads were measured.
+- **Not tried or not kept**: a dense array indexed by price (rejected: the price range is unbounded
+  and sparse levels waste memory; sorted vector keeps the code general); replacing the
+  `std::function` event callback with a template parameter (rejected to keep the public API stable and
+  because its cost is a constant included in every measurement); batching or prefetching in the
+  matcher (not attempted).
+- **Queue designs (Stage 4)**: the lock-free ring beat a mutex+condvar queue but **lost** to simply
+  locking the book (no hand-off, uncontended lock) and cannot exceed the single-thread ceiling; its
+  value is decoupling the producer from matching, not speed. A cache-line-per-slot variant and a
+  yield wait strategy each helped one metric (throughput) and were not made the default because they
+  did not help, or hurt, the metric the default was chosen for (paced median latency).
+  Unpadded indices were measurably slower, so padding stays.
+- **Multi-producer / MPMC queue**: not built. One producer keeps the ordering argument short and
+  makes "same events as the single-thread run" checkable by checksum.
+- **Self-trade prevention, order persistence, market-data adapters**: not built. The book has no
+  notion of participant and no recorded data is used.
+- **Exceptions for rejects**: not used; calls return a reason code and emit a Rejected event, which
+  keeps the hot path allocation-free and the event stream complete.
+
+## Invariants
+
+`OrderBook::validate()` returns the first violated invariant, and in builds without `NDEBUG` every
+mutating call runs it and aborts on failure (so the whole unit-test and fuzz suites run with it):
+
+- no crossed or locked book (best bid < best ask);
+- no empty price level, no non-positive resting quantity, no non-positive price;
+- every level's cached total and order count equal the sum over its orders;
+- each level's order list is well formed (head/tail terminated, `prev`/`next` consistent) and every
+  node's side and price match the level that holds it;
+- the id index contains exactly the resting orders, each pointing at its node.
+
+FIFO within a price level cannot be derived from state alone, so it is covered by the differential
+fuzzer, which compares every level's queue order against the reference model after each check.
+Separately, the reference model is trusted only as far as its author's reading of the spec; the
+hand-checked golden log is the independent check.
+
+## Event semantics (summary)
+
+Defined in the Stage 1 section above and in [EVENT_FORMAT.md](EVENT_FORMAT.md): trades execute at the
+resting order's price; FIFO within a level; an order that crosses an earlier order always trades
+(no self-trade prevention); for a new order the stream is Accepted, then Trades, then at most one
+Cancelled (IOC/market remainder or FOK kill); a modify emits Modified then any Trades, and only a
+same-price size reduction keeps queue priority; failures emit Rejected instead of Accepted. Events
+are delivered synchronously in occurrence order, which is what makes the replay and the
+multi-threaded run reproducible byte for byte.
+
+## Limitations
+
+Read these before quoting any number from this repository.
+
+- **One machine, Windows timings only.** Every timing comes from a single Windows desktop. Linux is
+  exercised in CI for correctness and sanitizers, but no Linux timing exists, and CI timings are
+  never used because the runners are shared and noisy.
+- **Desktop noise.** The machine was not isolated: normal background load, turbo/boost uncontrolled,
+  and a CPU with two core classes (Stage 3 was pinned to the lower class; a re-run on the higher
+  class is reported). Run-to-run drift was measured and is reported next to the results; ratios
+  between steps are the result, absolute ops/s are not portable. Tail latencies above the median are
+  dominated by OS interference in the multi-threaded runs.
+- **Closed-loop and paced-loop assumptions.** Stage 3 is closed loop: each op starts when the
+  previous one returns, so there is no queueing and the numbers are service times, not behaviour
+  under an arrival process. Stage 4 latency uses a paced producer measured from the intended send
+  time (which avoids coordinated omission), but at one fixed rate and with one producer.
+- **Timer cost.** Per-op latency uses a serialised TSC read whose pair cost is recorded in every
+  result file and is not subtracted.
+- **Cross-core TSC.** Cross-thread latency compares TSC values on two cores; the CPUID invariant bit
+  was checked and the offset estimated by ping-pong, which assumes symmetric delay.
+- **No multi-producer** support, no persistence, no recovery, no network or market-data adapters. The
+  book is not thread-safe; the threaded pipeline runs it on a single matching thread.
+- **Synthetic data only.** All workloads and the visualizer sample are generated; results say nothing
+  about real market microstructure.
+- **Reference model and book share an author** (see Invariants). Fuzz prices and quantities are
+  confined to narrow ranges.
+- **ThreadSanitizer** runs only in Linux CI (unavailable with MSVC). A deliberately racy queue build
+  confirms TSan can fail on this code; passing TSan is evidence, not proof, of freedom from races.
+- **Visualizer.** Screenshot-checked in one browser (headless Edge, dark theme, desktop width) and
+  opened once in a browser pane by the project owner's assistant; automated checks use a mock canvas
+  and a fake DOM and do not check pixels. Not tested: Firefox, Safari, the light theme, narrow or touch
+  screens. The book animates at snapshot granularity.
+- **Not yet merged or released.** The work is a stack of pull requests; see [RELEASE.md](RELEASE.md).
+  No license file has been added.
 
 ## Decisions
 - No exceptions for expected failures; calls return `RejectReason`.

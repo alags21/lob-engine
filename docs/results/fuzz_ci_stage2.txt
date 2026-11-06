@@ -1,0 +1,8 @@
+# Differential fuzz PASS lines copied from the GitHub Actions logs of run 42132275051 (PR #3, Stage 2). Counts only; CI wall time is not a performance number and is stripped.
+ASan + UBSan | Differential fuzz under ASan+UBSan | PASS runs=1 first_seed=1 ops=200000 events=305553 trades=85122 max_resting=1157
+gcc Release | Differential fuzz (Release, 1.5M ops, seeds printed) | PASS runs=2 first_seed=1 ops=1000000 events=1530900 trades=430010 max_resting=2538
+gcc Release | Differential fuzz (Release, 1.5M ops, seeds printed) | PASS runs=1 first_seed=100005 ops=500000 events=764848 trades=214644 max_resting=2437
+clang Debug | Differential fuzz (Debug, invariants checked after every op) | PASS runs=1 first_seed=1 ops=100000 events=152500 trades=42283 max_resting=767
+gcc Debug | Differential fuzz (Debug, invariants checked after every op) | PASS runs=1 first_seed=1 ops=100000 events=152500 trades=42283 max_resting=767
+clang Release | Differential fuzz (Release, 1.5M ops, seeds printed) | PASS runs=2 first_seed=1 ops=1000000 events=1530900 trades=430010 max_resting=2538
+clang Release | Differential fuzz (Release, 1.5M ops, seeds printed) | PASS runs=1 first_seed=100005 ops=500000 events=764848 trades=214644 max_resting=2437
