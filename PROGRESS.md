@@ -7,7 +7,7 @@
 | 2 | Correctness harness | in review (CI green) | #3 |
 | 3 | Performance | in review | PR pending |
 | 4 | Concurrency | in review | #5 |
-| 5 | Replay and visualizer | in review | PR pending |
+| 5 | Replay and visualizer | in review | #6 |
 | 6 | Polish | not started | |
 
 ## Built
