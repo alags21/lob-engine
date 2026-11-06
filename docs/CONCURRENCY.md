@@ -38,7 +38,7 @@ CI runners are shared and noisy; no CI timing appears here. CI only builds and s
 - The mutex-book row has no hand-off at all, only an uncontended lock, so it is expected to beat any queue on raw throughput when there is a single producer. It is a lower bound on what locking costs, not a model of a contended lock.
 - Explanations for why a variant is faster or slower (coherence traffic, spinning against a full queue, slot straddling cache lines) are hypotheses consistent with the data; no hardware counters were collected to confirm them.
 - Wait strategy: yielding raised saturated throughput but had a clearly higher paced median than spinning, and spin-then-yield matched pure spinning at the median (see the p50 columns). `spsc` (spin) is the default because the goal is low hand-off latency on dedicated cores; it is the wrong choice when cores are shared, where spin-then-yield (`spsc-backoff`) is the safer option.
-- ThreadSanitizer runs only in Linux CI (clang); it is unavailable with MSVC, so the Windows machine has never run it. No deliberately broken queue was run through TSan to prove it would flag one (not done).
+- ThreadSanitizer runs only in Linux CI (clang); it is unavailable with MSVC, so the Windows machine has never run it. A negative control checks that it can fail: CI builds the queue with its release/acquire hand-offs downgraded to relaxed (test-only option LOB_RACY_DEMO, never in the default build) and requires TSan to report a data race on the queue slots; that step passed in CI (TSan reported `data race` at spsc_queue.hpp).
 
 ## Results
 

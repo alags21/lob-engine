@@ -112,8 +112,9 @@ Stage 5: replay and visualizer. Starts only after approval.
   non-isolated desktop (even the no-queue row shows it); only medians are a reliable queue comparison.
 - Stage 4: the two pinned cores are different physical cores but their core type (this CPU may mix
   core types) and the TSC offset (estimated by ping-pong only) are not fully controlled.
-- Stage 4: TSan has not been run on Windows (unavailable) and was not shown to catch a deliberately
-  injected ordering bug; the book itself is single-threaded and not thread-safe.
+- Stage 4: TSan has not been run on Windows (unavailable); in Linux CI a negative control (queue with
+  relaxed hand-offs, test-only build option) confirms TSan reports the race. The book itself is
+  single-threaded and not thread-safe.
 - Reference model and `OrderBook` share one author and one spec; a misreading of the spec would be
   replicated in both. The hand-checked golden log and the unit tests are the independent check.
 - Fuzz prices are confined to a band of roughly 60-140 ticks, quantities to at most 120; extreme
