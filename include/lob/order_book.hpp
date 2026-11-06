@@ -1,7 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <functional>
-#include <map>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -189,8 +190,51 @@ class OrderBook {
     std::size_t used_ = 0;
     Node* free_ = nullptr;
   };
-  using BidMap = std::map<Price, Level, std::greater<Price>>;
-  using AskMap = std::map<Price, Level>;
+  // Price levels in one contiguous vector sorted so that the *best* level is the last element:
+  // inserts and removals near the touch (where nearly all activity is) move few elements, and
+  // matching walks memory linearly. begin() is the best level, like the std::map it replaced.
+  template <class Cmp>
+  class LevelVec {
+   public:
+    struct Entry {
+      Price first;
+      Level second;
+    };
+    using Vec = std::vector<Entry>;
+    using iterator = typename Vec::reverse_iterator;
+    using const_iterator = typename Vec::const_reverse_iterator;
+    iterator begin() { return v_.rbegin(); }
+    iterator end() { return v_.rend(); }
+    const_iterator begin() const { return v_.rbegin(); }
+    const_iterator end() const { return v_.rend(); }
+    bool empty() const { return v_.empty(); }
+    iterator find(Price p) {
+      auto it = lower(p);
+      return it != v_.end() && it->first == p ? std::make_reverse_iterator(std::next(it)) : end();
+    }
+    const_iterator find(Price p) const {
+      auto it = lower(p);
+      return it != v_.end() && it->first == p ? std::make_reverse_iterator(std::next(it)) : end();
+    }
+    Level& at(Price p) { return find(p)->second; }
+    Level& operator[](Price p) {
+      auto it = lower(p);
+      if (it == v_.end() || it->first != p) it = v_.insert(it, Entry{p, Level{}});
+      return it->second;
+    }
+    void erase(iterator r) { v_.erase(r.base() - 1); }
+
+   private:
+    typename Vec::iterator lower(Price p) {
+      return std::lower_bound(v_.begin(), v_.end(), p, [](const Entry& e, Price x) { return Cmp()(e.first, x); });
+    }
+    typename Vec::const_iterator lower(Price p) const {
+      return std::lower_bound(v_.begin(), v_.end(), p, [](const Entry& e, Price x) { return Cmp()(e.first, x); });
+    }
+    Vec v_;
+  };
+  using BidMap = LevelVec<std::less<Price>>;     // ascending: highest bid last
+  using AskMap = LevelVec<std::greater<Price>>;  // descending: lowest ask last
 
   void emit(const Event& e) const {
     if (handler_) handler_(e);
