@@ -13,7 +13,7 @@ workflow files, not repeated here.
 | 4 | Concurrency | in review (CI green) | #5 |
 | 5 | Replay and visualizer | in review (CI green) | #6 |
 | 6 | Polish | in review (CI green) | #7 |
-| 7 | Real ITCH data validation | in review (CI pending) | #8 |
+| 7 | Real ITCH data validation | in review (CI green) | #8 |
 
 Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.md).
 
