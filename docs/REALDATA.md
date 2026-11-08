@@ -23,7 +23,7 @@ Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded m
 | executions where the engine found no fill | 0 |
 | reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
 
-Real-stream replay (pre-decoded, pinned, 7 repetitions): 64,369,644 engine operations over 10 books, 2.46 Mops/s median (CV 4.0%), p50 160 ns, p99 2555 ns, p99.9 5040 ns.
+Real-stream replay (pre-decoded, pinned, 7 repetitions): 12,949,905 engine operations over 10 books, 6.25 Mops/s median (CV 4.4%), p50 150 ns, p99 822 ns, p99.9 2074 ns.
 
 ## Scan of the file
 
@@ -171,37 +171,46 @@ The engine's order-state tracking agrees with the exchange's exactly (0 violatio
 
 ## Real-stream replay benchmark
 
-Method: the ITCH stream is decoded once (decompression, parsing, bookkeeping and the engine, 201 s, NOT part of the measurement) while the exact operation stream applied to the engine for the selected symbols is recorded in memory; the timed replay then feeds that in-memory stream to fresh books (closed loop, single thread, in-memory pre-decoded op stream). 1 untimed warmup repetition and 7 measured repetitions; throughput from whole-loop wall time without per-op timers, latency from per-op TSC timestamps (rdtsc (lfence-serialised), timestamp pair overhead 40 ns, not subtracted). The event callback only counts events and trades.
+Method: the ITCH stream is decoded once (decompression, parsing, bookkeeping and the engine, 116 s, NOT part of the measurement) while the exact operation stream applied to the engine for the selected symbols is recorded in memory; the timed replay then feeds that in-memory stream to fresh books (closed loop, single thread, in-memory pre-decoded op stream). 1 untimed warmup repetition and 7 measured repetitions; throughput from whole-loop wall time without per-op timers, latency from per-op TSC timestamps (rdtsc (lfence-serialised), timestamp pair overhead 40 ns, not subtracted). The event callback only counts events and trades.
 
-Environment: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M        (24 logical cores), Windows-11-10.0.26200-SP0, flags `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`, thread pinned to logical CPU 4 (efficiency class 1, see `bench/results/cpu_topology.txt`), CPU load measured before the run 24.2%. Desktop machine, not isolated; other workloads may run. CPU load measured before the run: 24.2% (limit for starting: 30.0%, attempt 3).
+Environment: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M        (24 logical cores), Windows-11-10.0.26200-SP0, flags `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`, thread pinned to logical CPU 4 (efficiency class 1, see `bench/results/cpu_topology.txt`), CPU load measured before the run 36%. Desktop machine, not isolated; other workloads may run. CPU load measured before the run: 36.0% (limit for starting: 45.0%, attempt 1). 
 
-Workload: symbols AAPL, IWM, MSFT, MU, QQQ, SCHP, SPY, TQQQ, TSLA, URTY; 282,229,684 frames read; 64,369,644 engine operations over 10 books (add limit gtc: 57,582,152, cancel: 6,492,998, partial cancel modify: 35,326, execution marketable ioc: 253,870); 64,621,679 events, 257,333 trades; 0 orders resting at the end. Final book digests equal to the validation run's: 10 of 10 checked.
+Workload: symbols AAPL, IWM, MSFT, MU, QQQ, SCHP, SPY, TQQQ, TSLA, URTY; 282,229,684 frames read; 12,949,905 engine operations over 10 books (add limit gtc: 6,426,429, cancel: 6,253,704, partial cancel modify: 34,276, execution marketable ioc: 235,496); 13,214,393 events, 264,330 trades; 145 orders resting at the end. Final book digests equal to the validation run's: 10 of 10 checked.
 
 | metric | median | min | max | CV |
 |---|---|---|---|---|
-| throughput (Mops/s) | 2.46 | 2.27 | 2.59 | 4.0% |
-| p50 latency (ns) | 160 | 150 | 160 | 2.9% |
-| p99 latency (ns) | 2555 | 2435 | 2625 | 2.3% |
-| p99.9 latency (ns) | 5040 | 4719 | 5190 | 2.9% |
-| max latency (ns) | 15907300 | 2548230 | 82835900 | 109.1% |
+| throughput (Mops/s) | 6.25 | 5.71 | 6.61 | 4.4% |
+| p50 latency (ns) | 150 | 150 | 160 | 3.0% |
+| p99 latency (ns) | 822 | 802 | 902 | 4.7% |
+| p99.9 latency (ns) | 2074 | 1904 | 2334 | 8.3% |
+| max latency (ns) | 1793350 | 1484450 | 13715800 | 115.7% |
 
 | operation | p50 (ns) | p99 (ns) |
 |---|---|---|
-| add limit gtc | 160 | 2635 |
-| cancel | 150 | 862 |
-| partial cancel modify | 230 | 1152 |
-| execution marketable ioc | 311 | 1002 |
+| add limit gtc | 160 | 962 |
+| cancel | 140 | 691 |
+| partial cancel modify | 200 | 731 |
+| execution marketable ioc | 271 | 882 |
 
 Comparison with the synthetic Stage 3 workloads (same engine, same methodology, different pinned core class):
 
 | workload | Mops/s | p50 ns | p99 ns | p99.9 ns |
 |---|---|---|---|---|
-| real ITCH replay | 2.46 | 160 | 2555 | 5040 |
+| real ITCH replay | 6.25 | 150 | 822 | 2074 |
 | synthetic passive | 11.53 | 120 | 281 | 521 |
 | synthetic aggressive | 12.88 | 110 | 301 | 551 |
 | synthetic balanced | 9.32 | 130 | 381 | 771 |
 
-Reading the comparison: the real stream is dominated by adds and deletes (executions are a few percent of operations), spread over several books whose depth and price dispersion differ from the synthetic generator's; a replace is two operations (cancel and add); resting books are deeper and more spread out than the synthetic ones, which touches more cache lines per operation. The benchmark is closed loop, single thread, over a pre-decoded stream for the chosen symbols only, on a desktop that was running other workloads: the CPU load before the run is recorded above and the run-to-run variance is shown; it says nothing about decoding throughput, multi-symbol contention or a live feed.
+Operation mix of the real stream (after replace = cancel + add): adds 49.6%, cancels 48.3%, partial cancels 0.3%, executions (marketable IOC) 1.82%. While recording, the engine disagreed with the exchange's maker choice in 39,209 continuous-hours executions of these symbols; the book was not resynchronised, so the replayed book is the engine's own strict-FIFO book. Per-operation latency by category is in the table above.
+
+Experiment: the same stream replayed with the Stage 3 step-4 level lookup (binary search over the sorted level vector) instead of the shipped step-5 scan from the best level, in a scratch copy of the engine header (not part of the repository's engine):
+
+| level lookup | Mops/s | p50 ns | p99 ns | p99.9 ns | add p99 ns |
+|---|---|---|---|---|---|
+| scan from best level (shipped) | 6.25 | 150 | 822 | 2074 | 962 |
+| binary search (experiment) | 5.76 | 190 | 711 | 1413 | 741 |
+
+Reading the comparison: the real stream has a different shape from the synthetic workloads: executions are a tiny share of operations and adds and cancels dominate (a high-turnover quote stream). The engine is slower here than on the synthetic workloads, with heavier tails; likely contributors are deeper books spread over more price levels and a larger working set across ten books, but those are hypotheses, not measured here. In this experiment the shipped scan has the higher throughput and the lower median, while the binary search has the lower p99/p99.9: neither variant dominates, which is the workload dependence flagged in Stage 3 (the step-5 scan favours activity near the touch; real flow also places and cancels orders far from it). The two replays ran one after the other, not interleaved, so drift between them is not controlled. The benchmark is closed loop, single thread, over a pre-decoded stream for the chosen symbols only, on a desktop that was running other workloads (CPU load before the run is recorded above, variance is shown); it says nothing about decoding throughput, multi-symbol contention or a live feed.
 
 ## Limitations
 

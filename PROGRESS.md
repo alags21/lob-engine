@@ -13,7 +13,7 @@ workflow files, not repeated here.
 | 4 | Concurrency | in review (CI green) | #5 |
 | 5 | Replay and visualizer | in review (CI green) | #6 |
 | 6 | Polish | in review (CI green) | #7 |
-| 7 | Real ITCH data validation | in review | #8 |
+| 7 | Real ITCH data validation | in review (CI pending) | #8 |
 
 Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.md).
 
@@ -84,7 +84,7 @@ Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded m
 | executions where the engine found no fill | 0 |
 | reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
 
-Real-stream replay (pre-decoded, pinned, 7 repetitions): 64,369,644 engine operations over 10 books, 2.46 Mops/s median (CV 4.0%), p50 160 ns, p99 2555 ns, p99.9 5040 ns.
+Real-stream replay (pre-decoded, pinned, 7 repetitions): 12,949,905 engine operations over 10 books, 6.25 Mops/s median (CV 4.4%), p50 150 ns, p99 822 ns, p99.9 2074 ns.
 <!-- END GENERATED:realdata -->
 
 ### Queue designs (Stage 4)

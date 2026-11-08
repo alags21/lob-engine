@@ -274,10 +274,31 @@ def build():
             for wl, j in syn.items():
                 d.append(f"| synthetic {wl} | {j['throughput_ops_per_sec']['median'] / 1e6:.2f} | {j['latency_ns']['p50']['median']:.0f} | {j['latency_ns']['p99']['median']:.0f} | {j['latency_ns']['p99_9']['median']:.0f} |")
             d.append("")
-        d.append("Reading the comparison: the real stream is dominated by adds and deletes (executions are a few percent of operations), spread over several books whose depth and price dispersion differ from the "
-                 "synthetic generator's; a replace is two operations (cancel and add); resting books are deeper and more spread out than the synthetic ones, which touches more cache lines per operation. "
-                 "The benchmark is closed loop, single thread, over a pre-decoded stream for the chosen symbols only, on a desktop that was running other workloads: the CPU load before the run is recorded above and the "
-                 "run-to-run variance is shown; it says nothing about decoding throughput, multi-symbol contention or a live feed.\n")
+        bs = load("bench_binary_search.json")
+        tot_ops = sum(w["ops_by_category"].values())
+        cats = w["ops_by_category"]
+        d.append(f"Operation mix of the real stream (after replace = cancel + add): adds {pct(cats['add_limit_gtc'], tot_ops, 1)}, cancels {pct(cats['cancel'], tot_ops, 1)}, partial cancels {pct(cats['partial_cancel_modify'], tot_ops, 1)}, "
+                 f"executions (marketable IOC) {pct(cats['execution_marketable_ioc'], tot_ops, 2)}. While recording, the engine disagreed with the exchange's maker choice in {n(w.get('fifo_deviations_seen_while_recording', 0))} "
+                 f"continuous-hours executions of these symbols; the book was not resynchronised, so the replayed book is the engine's own strict-FIFO book. Per-operation latency by category is in the table above.\n")
+        if bs:
+            b_th, b_lat = bs["throughput_ops_per_sec"], bs["latency_ns"]
+            d.append("Experiment: the same stream replayed with the Stage 3 step-4 level lookup (binary search over the sorted level vector) instead of the shipped step-5 scan from the best level, in a scratch copy of the engine header (not part of the repository's engine):\n")
+            d.append("| level lookup | Mops/s | p50 ns | p99 ns | p99.9 ns | add p99 ns |")
+            d.append("|---|---|---|---|---|---|")
+            d.append(f"| scan from best level (shipped) | {th['median'] / 1e6:.2f} | {lat['p50']['median']:.0f} | {lat['p99']['median']:.0f} | {lat['p99_9']['median']:.0f} | {lat['by_category']['add_limit_gtc']['p99']['median']:.0f} |")
+            d.append(f"| binary search (experiment) | {b_th['median'] / 1e6:.2f} | {b_lat['p50']['median']:.0f} | {b_lat['p99']['median']:.0f} | {b_lat['p99_9']['median']:.0f} | {b_lat['by_category']['add_limit_gtc']['p99']['median']:.0f} |")
+            d.append("")
+        verdict = ""
+        if bs:
+            faster_mid = th["median"] > b_th["median"]
+            better_tail = b_lat["p99"]["median"] < lat["p99"]["median"]
+            verdict = (f" In this experiment the {'shipped scan' if faster_mid else 'binary search'} has the higher throughput and the lower median, while the "
+                       f"{'binary search' if better_tail else 'shipped scan'} has the lower p99/p99.9: neither variant dominates, which is the workload dependence flagged in Stage 3 (the step-5 scan favours activity near the touch; "
+                       "real flow also places and cancels orders far from it). The two replays ran one after the other, not interleaved, so drift between them is not controlled.")
+        d.append("Reading the comparison: the real stream has a different shape from the synthetic workloads: executions are a tiny share of operations and adds and cancels dominate (a high-turnover quote stream). "
+                 "The engine is slower here than on the synthetic workloads, with heavier tails; likely contributors are deeper books spread over more price levels and a larger working set across ten books, "
+                 "but those are hypotheses, not measured here." + verdict + " The benchmark is closed loop, single thread, over a pre-decoded stream for the chosen symbols only, on a desktop that was running other "
+                 "workloads (CPU load before the run is recorded above, variance is shown); it says nothing about decoding throughput, multi-symbol contention or a live feed.\n")
     else:
         d.append("## Real-stream replay benchmark\n\nNot run yet.\n")
     d.append("## Limitations\n")
