@@ -26,6 +26,8 @@ def main():
     ap.add_argument("--max-load", type=float, default=30.0)
     ap.add_argument("--retries", type=int, default=6)
     ap.add_argument("--build", default="build-rel")
+    ap.add_argument("--label", default="realdata-replay")
+    ap.add_argument("--note-extra", default="")
     a = ap.parse_args()
     sha = rb.sh(["git", "rev-parse", "--short", "HEAD"])
     for attempt in range(a.retries + 1):
@@ -36,9 +38,9 @@ def main():
         print("machine busy, waiting 3 minutes", flush=True)
         time.sleep(180)
     note = (f"Desktop machine, not isolated; other workloads may run. CPU load measured before the run: {load}% "
-            f"(limit for starting: {a.max_load}%, attempt {attempt + 1}).")
+            f"(limit for starting: {a.max_load}%, attempt {attempt + 1}). " + a.note_extra)
     cmd = [a.exe, "bench", "--input", a.input, "--json", a.out, "--symbols", a.symbols, "--reps", str(a.reps), "--cpu", str(a.cpu),
-           "--label", "realdata-replay", "--commit", sha, "--os", platform.platform(), "--flags", rb.cmake_flags(a.build), "--load", str(load), "--note", note]
+           "--label", a.label, "--commit", sha, "--os", platform.platform(), "--flags", rb.cmake_flags(a.build), "--load", str(load), "--note", note]
     print(" ".join(cmd), flush=True)
     subprocess.run(cmd, check=True)
 

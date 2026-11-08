@@ -23,6 +23,8 @@ Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded m
 | executions where the engine found no fill | 0 |
 | reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
 
+Real-stream replay (pre-decoded, pinned, 7 repetitions): 64,369,644 engine operations over 10 books, 2.46 Mops/s median (CV 4.0%), p50 160 ns, p99 2555 ns, p99.9 5040 ns.
+
 ## Scan of the file
 
 282,229,684 messages, 8,849 symbols, 0 malformed, truncated final frame: False. System events (first occurrence, ns since midnight): market hours start `Q` at 34,200,000,075,128 (09:30:00.000075), end `M` at 57,600,000,058,633 (16:00:00.000059). Message counts by type: A: 124,164,371, C: 135,573, D: 119,999,061, E: 7,582,422, F: 1,296,379, H: 8,869, I: 3,723,793, J: 2, L: 210,706, P: 1,461,010, Q: 17,700, R: 8,849, S: 6, U: 21,253,951, V: 1, X: 2,358,032, Y: 8,959. Busiest symbols by message count: SPY (2,113,960), QQQ (1,840,057), IWM (1,729,137), URTY (1,422,344), TQQQ (1,414,624), AAPL (1,315,843), MSFT (1,211,421), MU (1,172,631).
@@ -169,7 +171,37 @@ The engine's order-state tracking agrees with the exchange's exactly (0 violatio
 
 ## Real-stream replay benchmark
 
-Not run yet.
+Method: the ITCH stream is decoded once (decompression, parsing, bookkeeping and the engine, 201 s, NOT part of the measurement) while the exact operation stream applied to the engine for the selected symbols is recorded in memory; the timed replay then feeds that in-memory stream to fresh books (closed loop, single thread, in-memory pre-decoded op stream). 1 untimed warmup repetition and 7 measured repetitions; throughput from whole-loop wall time without per-op timers, latency from per-op TSC timestamps (rdtsc (lfence-serialised), timestamp pair overhead 40 ns, not subtracted). The event callback only counts events and trades.
+
+Environment: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M        (24 logical cores), Windows-11-10.0.26200-SP0, flags `Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG`, thread pinned to logical CPU 4 (efficiency class 1, see `bench/results/cpu_topology.txt`), CPU load measured before the run 24.2%. Desktop machine, not isolated; other workloads may run. CPU load measured before the run: 24.2% (limit for starting: 30.0%, attempt 3).
+
+Workload: symbols AAPL, IWM, MSFT, MU, QQQ, SCHP, SPY, TQQQ, TSLA, URTY; 282,229,684 frames read; 64,369,644 engine operations over 10 books (add limit gtc: 57,582,152, cancel: 6,492,998, partial cancel modify: 35,326, execution marketable ioc: 253,870); 64,621,679 events, 257,333 trades; 0 orders resting at the end. Final book digests equal to the validation run's: 10 of 10 checked.
+
+| metric | median | min | max | CV |
+|---|---|---|---|---|
+| throughput (Mops/s) | 2.46 | 2.27 | 2.59 | 4.0% |
+| p50 latency (ns) | 160 | 150 | 160 | 2.9% |
+| p99 latency (ns) | 2555 | 2435 | 2625 | 2.3% |
+| p99.9 latency (ns) | 5040 | 4719 | 5190 | 2.9% |
+| max latency (ns) | 15907300 | 2548230 | 82835900 | 109.1% |
+
+| operation | p50 (ns) | p99 (ns) |
+|---|---|---|
+| add limit gtc | 160 | 2635 |
+| cancel | 150 | 862 |
+| partial cancel modify | 230 | 1152 |
+| execution marketable ioc | 311 | 1002 |
+
+Comparison with the synthetic Stage 3 workloads (same engine, same methodology, different pinned core class):
+
+| workload | Mops/s | p50 ns | p99 ns | p99.9 ns |
+|---|---|---|---|---|
+| real ITCH replay | 2.46 | 160 | 2555 | 5040 |
+| synthetic passive | 11.53 | 120 | 281 | 521 |
+| synthetic aggressive | 12.88 | 110 | 301 | 551 |
+| synthetic balanced | 9.32 | 130 | 381 | 771 |
+
+Reading the comparison: the real stream is dominated by adds and deletes (executions are a few percent of operations), spread over several books whose depth and price dispersion differ from the synthetic generator's; a replace is two operations (cancel and add); resting books are deeper and more spread out than the synthetic ones, which touches more cache lines per operation. The benchmark is closed loop, single thread, over a pre-decoded stream for the chosen symbols only, on a desktop that was running other workloads: the CPU load before the run is recorded above and the run-to-run variance is shown; it says nothing about decoding throughput, multi-symbol contention or a live feed.
 
 ## Limitations
 

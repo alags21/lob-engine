@@ -83,6 +83,8 @@ Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded m
 | price-priority violations (an order at a better price was skipped) | 1 |
 | executions where the engine found no fill | 0 |
 | reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
+
+Real-stream replay (pre-decoded, pinned, 7 repetitions): 64,369,644 engine operations over 10 books, 2.46 Mops/s median (CV 4.0%), p50 160 ns, p99 2555 ns, p99.9 5040 ns.
 <!-- END GENERATED:realdata -->
 
 ### Queue designs (Stage 4)

@@ -237,6 +237,7 @@ int run_bench(const BenchArgs& a) {
   std::vector<std::uint16_t> locate_of_book;
   ValidateConfig cfg;
   cfg.only_symbols = want;
+  cfg.resync = false;  // record the natural op stream, not resynchronisation re-submissions
   cfg.op_sink = [&](std::uint16_t loc, const lob::Op& op) {
     auto it = book_of_locate.find(loc);
     if (it == book_of_locate.end()) {
@@ -349,6 +350,9 @@ int run_bench(const BenchArgs& a) {
                  static_cast<double>(ops.size()) / secs / 1e6, all.p50, all.p99, all.p999, all.max);
   }
 
+  const Stats vt = v.total();
+  std::uint64_t deviations = 0;
+  for (int k = 0; k < kMismatchKinds; ++k) deviations += vt.mismatch[kContinuous][k];
   std::uint64_t resting = 0;
   for (const auto& b : final_books) resting += b->order_count();
 
@@ -374,7 +378,7 @@ int run_bench(const BenchArgs& a) {
   }
   j << "],\"books\":" << locate_of_book.size() << ",\"itch_frames_read\":" << frames << ",\"ops_replayed\":" << ops.size() << ",\"ops_by_category\":{";
   for (int c = 0; c < kCats; ++c) j << (c ? "," : "") << "\"" << kCatNames[c] << "\":" << cat_count[c];
-  j << "},\"events\":" << counters.events << ",\"trades\":" << counters.trades << ",\"resting_orders_at_end\":" << resting
+  j << "},\"events\":" << counters.events << ",\"trades\":" << counters.trades << ",\"resting_orders_at_end\":" << resting << ",\"fifo_deviations_seen_while_recording\":" << deviations << ",\"resync_after_disagreement\":false"
     << ",\"decode_seconds_including_decompression\":";
   std::snprintf(buf, sizeof buf, "%.6g", decode_s);
   j << buf << ",\"final_book_digests_checked\":" << digests_checked << ",\"final_book_digests_equal_to_validation_run\":" << digests_equal << "},";

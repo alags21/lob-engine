@@ -152,6 +152,7 @@ void Validator::remove_order(Symbol& s, std::uint64_t ref, Order&) {
 }
 
 void Validator::rebuild(Symbol& s) {
+  if (!cfg_.resync) return;
   ++s.stats.rebuilds;
   if (s.stats.rebuilds > cfg_.max_rebuilds_per_symbol) {
     s.diverged = true;

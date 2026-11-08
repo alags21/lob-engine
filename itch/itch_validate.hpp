@@ -92,6 +92,9 @@ struct ValidateConfig {
   bool partial_cancel_loses_priority = false;
   /// Experiment: apply executions that share a timestamp (one match event) in queue order instead of feed order.
   bool group_executions = false;
+  /// If false the engine's book is NOT rebuilt from the exchange-implied state after a disagreement (used by the
+  /// replay benchmark so that resynchronisation re-submissions do not pollute the recorded op stream).
+  bool resync = true;
   /// If non-empty, only these symbols are processed (other order messages are skipped).
   std::set<std::string> only_symbols;
   /// Called for every operation applied to the engine under test (adds, cancels, modifies, the IOC
