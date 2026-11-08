@@ -13,7 +13,7 @@ workflow files, not repeated here.
 | 4 | Concurrency | in review (CI green) | #5 |
 | 5 | Replay and visualizer | in review (CI green) | #6 |
 | 6 | Polish | in review (CI green) | #7 |
-| 7 | Real ITCH data validation | **IN PROGRESS, interrupted (usage limit)** | #8 |
+| 7 | Real ITCH data validation | in review | #8 |
 
 Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.md).
 
@@ -36,15 +36,9 @@ Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.m
   single-thread run, stress tests, ThreadSanitizer CI job with a negative control.
 - **Stage 5**: seeded synthetic market (`lob_sim`), CSV/JSON-lines/oplog replay (`lob_replay`),
   `lob-run-v1` JSON export with events and book snapshots, and the static offline visualizer in `viz/`.
+- **Stage 7**: ITCH 5.0 parser, per-symbol validation on one real Nasdaq day (order-level consistency, engine-picks-the-maker priority check, reference-model cross-check), tests of six hypotheses for deviations from strict FIFO, a real-stream replay benchmark, synthetic-only CI job, repository data guard (`docs/REALDATA.md`).
 - **Stage 6**: README with architecture diagram and generated tables, DESIGN tradeoffs and limitations,
   `docs/RELEASE.md`, keyboard-reachable "Load run" control, consistency pass over generated numbers.
-
-## Stage 7 (real Nasdaq ITCH data): UNFINISHED
-Work stopped at a usage limit. Done: ITCH 5.0 parser/encoder, stream-decoding validator (order-level,
-priority, reference cross-check), synthetic ITCH generator, CI job on synthetic data only, repo data guard,
-real-file scan, exploratory probes. Not done: full-day validation, hypothesis experiments, replay benchmark,
-generated tables. Everything needed to resume, with exact commands, is in `docs/REALDATA.md` (section
-TODO). Raw data stays in the local folder `Data/itch` under the user profile, outside the repository.
 
 ## Measured results (generated)
 
@@ -75,6 +69,22 @@ Baseline `00-baseline` vs `05-linear-scan-levels` (medians of repeated runs; see
 | balanced | 4.66 | 9.32 | 2.00x | 741 | 381 | 1723 | 771 | 0.811 -> 0.000 |
 <!-- END GENERATED:perf -->
 
+### Real Nasdaq ITCH data (Stage 7)
+
+<!-- BEGIN GENERATED:realdata -->
+Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded messages across 8,849 symbols (282,229,684 frames in the file, 0 malformed). Every message was replayed through the engine; selected symbols were also run through the Stage 2 reference model.
+
+| check | result |
+|---|---|
+| order-state violations (unknown/duplicate reference, over-execute, over-cancel, our size differs from the exchange's, rejected operation) | **0** |
+| executions checked in continuous trading (engine picks the maker) | 7,631,594 |
+| engine chose the exact order the exchange executed | 7,516,230 (98.49%) |
+| deviations from strict FIFO (a different order at the same price) | 115,363 (1.51%) |
+| price-priority violations (an order at a better price was skipped) | 1 |
+| executions where the engine found no fill | 0 |
+| reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
+<!-- END GENERATED:realdata -->
+
 ### Queue designs (Stage 4)
 
 <!-- BEGIN GENERATED:mt -->
@@ -96,6 +106,7 @@ Tail latency (p99 and above) on this machine is dominated by OS interference; se
 Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONCURRENCY.md`.
 
 ## Known gaps
+- **Real-data scope**: one trading day, one venue's feed, ITCH 5.0 as of 2019; the FIFO deviations are only partly attributable from public data (see `docs/REALDATA.md`); the raw file is not redistributable and is not in the repository.
 - **License**: no LICENSE file has been added (the owner's choice). One is required before the
   repository goes public.
 - **Platform**: all timings are from one Windows desktop (not isolated, boost not controlled). Treat
