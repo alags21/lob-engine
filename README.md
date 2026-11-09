@@ -18,6 +18,16 @@ ctest --test-dir build --output-on-failure
 Requires CMake 3.20+, a C++20 compiler, GoogleTest and Google Benchmark.
 Windows: see [docs/BENCHMARKING.md](docs/BENCHMARKING.md).
 
+## Visualizer
+
+`viz/index.html` is a static page (no build, no network, works from `file://`): animated depth chart,
+trade tape, mid price and spread, order-flow stats and a latency histogram from the saved benchmark
+results, with play/pause/step/speed/scrub. It ships with a sample run of the C++ engine on synthetic
+orders; regenerate it with `python scripts/make_viz_data.py --sim <path to lob_sim>`. Details and
+what was tested: [docs/DESIGN.md](docs/DESIGN.md).
+
+![Visualizer screenshot](docs/img/viz-sample.png)
+
 ## Concurrency
 
 Producer thread -> lock-free SPSC ring -> matching thread, compared with mutex-based designs on the same

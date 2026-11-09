@@ -35,7 +35,7 @@ else()
   endif()
 endif()
 
-add_library(lob src/version.cpp src/order_book.cpp src/event_log.cpp)
+add_library(lob src/version.cpp src/order_book.cpp src/event_log.cpp src/market_sim.cpp src/replay_io.cpp)
 target_include_directories(lob PUBLIC include)
 find_package(Threads REQUIRED)
 target_link_libraries(lob PRIVATE lob_options)

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lob-engine visualizer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>lob-engine visualizer</h1>
+  <p class="sub">Synthetic limit order book run replayed through the C++ matching engine. No real market data. Works offline.</p>
+</header>
+
+<section class="controls" aria-label="Playback controls">
+  <button id="btn-start" title="Jump to start (Home)">&#x23EE; Start</button>
+  <button id="btn-prev" title="Step back one snapshot (Left arrow)">&#x25C0; Step</button>
+  <button id="btn-play" title="Play / pause (Space)">Play</button>
+  <button id="btn-next" title="Step forward one snapshot (Right arrow)">Step &#x25B6;</button>
+  <button id="btn-end" title="Jump to end (End)">End &#x23ED;</button>
+  <label>Speed
+    <select id="speed">
+      <option value="60">60 ops/s</option>
+      <option value="150">150 ops/s</option>
+      <option value="300" selected>300 ops/s</option>
+      <option value="800">800 ops/s</option>
+      <option value="2000">2,000 ops/s</option>
+      <option value="6000">6,000 ops/s</option>
+    </select>
+  </label>
+  <input id="scrub" type="range" min="0" max="1" value="0" aria-label="Scrub through the run">
+  <label class="file">Load run&hellip; <input id="file-input" type="file" accept=".json,.js"></label>
+</section>
+<p id="readout" class="readout" aria-live="off">loading&hellip;</p>
+<p id="status" class="status" role="status"></p>
+
+<main>
+  <section class="panel wide">
+    <h2>Order book depth</h2>
+    <canvas id="cv-depth" aria-label="Cumulative depth chart of bids and asks"></canvas>
+  </section>
+  <section class="panel">
+    <h2>Trade tape</h2>
+    <table class="tape"><thead><tr><th>time</th><th>price</th><th>qty</th><th>taker</th></tr></thead><tbody id="tape-body"></tbody></table>
+  </section>
+  <section class="panel wide">
+    <h2>Mid price and spread over time</h2>
+    <canvas id="cv-series" aria-label="Mid price with trades, and spread, over time"></canvas>
+  </section>
+  <section class="panel">
+    <h2>Order-flow stats</h2>
+    <table class="stats"><tbody id="stats-body"></tbody></table>
+  </section>
+  <section class="panel wide">
+    <h2>Order flow over the run</h2>
+    <canvas id="cv-flow" aria-label="Order flow mix per slice of the run"></canvas>
+  </section>
+  <section class="panel">
+    <h2>Run</h2>
+    <p id="run-info" class="info"></p>
+  </section>
+  <section class="panel full">
+    <h2>Per-operation latency (from saved benchmark results)</h2>
+    <div class="lat-controls">
+      <label>Study <select id="lat-study"></select></label>
+      <label>Workload <select id="lat-workload"></select></label>
+      <label>Variant <select id="lat-variant"></select></label>
+    </div>
+    <canvas id="cv-latency" aria-label="Latency histogram"></canvas>
+    <p id="lat-info" class="info"></p>
+  </section>
+</main>
+
+<footer>Source: <code>viz/</code> in the lob-engine repository. Regenerate the sample with <code>python scripts/make_viz_data.py --sim &lt;path to lob_sim&gt;</code>.</footer>
+
+<script src="data/sample_run.js"></script>
+<script src="data/latency.js"></script>
+<script src="app.js"></script>
+<script>LobViz.init(document, window);</script>
+</body>
+</html>
