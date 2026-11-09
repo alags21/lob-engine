@@ -29,6 +29,11 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Benchmark smoke run (checks it builds and runs; timings are not used)
+        if: matrix.build_type == 'Release'
+        run: |
+          build/bench/lob_bench --workload passive --ops 20000 --reps 1 --out /tmp/smoke_passive.json
+          build/bench/lob_bench --workload aggressive --ops 20000 --reps 1 --out /tmp/smoke_aggressive.json
       - name: Differential fuzz (Release, 1.5M ops, seeds printed)
         if: matrix.build_type == 'Release'
         run: |

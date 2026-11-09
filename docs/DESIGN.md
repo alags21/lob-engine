@@ -61,5 +61,39 @@ Skeleton. Filled in per stage; final tradeoffs in Stage 6.
 - **Op log / event format**: see `docs/EVENT_FORMAT.md`. Text, one record per line, so logs diff
   cleanly and failing fuzz runs are replayable with `lob_replay`.
 
+## Stage 3: performance design
+Process: build the harness, record the naive Stage 1 book as the baseline, then change one thing per
+commit, run the Stage 2 correctness gate (unit tests, differential fuzz against the reference model,
+`validate()` after every call), benchmark, keep the change only if it measurably helps. Per-step
+numbers: [PERFORMANCE.md](PERFORMANCE.md) (generated). Headline (generated):
+
+<!-- BEGIN GENERATED:perf -->
+Baseline `00-baseline` vs `05-linear-scan-levels` (medians of repeated runs; see docs/PERFORMANCE.md for method, variance and every step).
+
+| workload | baseline Mops/s | final Mops/s | speedup | baseline p99 ns | final p99 ns | baseline p99.9 ns | final p99.9 ns | allocs/op before -> after |
+|---|---|---|---|---|---|---|---|---|
+| passive | 4.79 | 11.53 | 2.41x | 631 | 281 | 1483 | 521 | 0.864 -> 0.000 |
+| aggressive | 5.79 | 12.88 | 2.22x | 701 | 301 | 1573 | 551 | 0.764 -> 0.000 |
+| balanced | 4.66 | 9.32 | 2.00x | 741 | 381 | 1723 | 771 | 0.811 -> 0.000 |
+<!-- END GENERATED:perf -->
+
+Data structures now (public API unchanged apart from `OrderBook` being non-copyable, which it never
+could safely be):
+- **Orders** are intrusive doubly linked nodes (`prev`/`next` in the node), one list per price level,
+  front = highest time priority. Cancel and in-place amend are O(1) once the node is found.
+- **Node storage** comes from a slab allocator with a free list (4096-node chunks); after warm-up no
+  submit, fill or cancel touches the system allocator.
+- **Id lookup** is an open-addressing table (linear probing, power-of-two capacity, load <= 1/2,
+  Fibonacci hashing, backward-shift deletion so there are no tombstones).
+- **Price levels** per side are one contiguous `std::vector` sorted so the best level is the last
+  element; insert/erase near the touch move few elements. Levels are located by scanning from the
+  best level rather than by binary search, because activity clusters at the touch. That choice is
+  workload dependent: a very deep book with orders far from the touch would favour binary search.
+- **Allocation on the hot path**: `lob_bench` replaces global `operator new` with a counting
+  wrapper and reports allocations per op; the remaining allocations are one-off growth of the slab
+  list, the id table and the level vectors.
+- Events still go through a `std::function` callback (part of the public API), so its cost is
+  included in every measurement.
+
 ## Decisions
 - No exceptions for expected failures; calls return `RejectReason`.
