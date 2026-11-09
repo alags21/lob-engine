@@ -118,6 +118,29 @@ Stage 4, producer thread -> queue -> matching thread (medians of repeated runs; 
 Tail latency (p99 and above) on this machine is dominated by OS interference; see docs/CONCURRENCY.md.
 <!-- END GENERATED:mt -->
 
+## Validation on real Nasdaq data
+
+The engine was replayed over a full day of real Nasdaq ITCH 5.0 messages (one trading day, 30 July 2019; the
+raw file is not in this repository and is not redistributable). Method, mapping, the hypotheses tested for
+the deviations from strict FIFO, and the replay benchmark: [docs/REALDATA.md](docs/REALDATA.md). Generated
+by `scripts/make_realdata_report.py` from `bench/results/realdata/*.json`.
+
+<!-- BEGIN GENERATED:realdata -->
+Real Nasdaq ITCH 5.0 data, one trading day (30 July 2019), 278,286,223 decoded messages across 8,849 symbols (282,229,684 frames in the file, 0 malformed). Every message was replayed through the engine; selected symbols were also run through the Stage 2 reference model.
+
+| check | result |
+|---|---|
+| order-state violations (unknown/duplicate reference, over-execute, over-cancel, our size differs from the exchange's, rejected operation) | **0** |
+| executions checked in continuous trading (engine picks the maker) | 7,631,594 |
+| engine chose the exact order the exchange executed | 7,516,230 (98.49%) |
+| deviations from strict FIFO (a different order at the same price) | 115,363 (1.51%) |
+| price-priority violations (an order at a better price was skipped) | 1 |
+| executions where the engine found no fill | 0 |
+| reference-model comparisons (BBO, all levels, queue order) on 5 symbols | 1,027 comparisons, 0 disagreements |
+
+Real-stream replay (pre-decoded, pinned, 7 repetitions): 12,949,905 engine operations over 10 books, 6.25 Mops/s median (CV 4.4%), p50 150 ns, p99 822 ns, p99.9 2074 ns.
+<!-- END GENERATED:realdata -->
+
 ## Visualizer
 
 `viz/index.html` is a static page (plain HTML, canvas and JS; no build, no network, works from

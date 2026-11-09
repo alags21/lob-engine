@@ -1,0 +1,387 @@
+{
+ "input": "C:/Users/adity/Data/itch/07302019.NASDAQ_ITCH50.gz",
+ "messages": 282229684,
+ "malformed": 0,
+ "truncated_final_frame": false,
+ "scan_seconds": 144.354,
+ "symbols": 8849,
+ "messages_by_type": {
+  "A": 124164371,
+  "C": 135573,
+  "D": 119999061,
+  "E": 7582422,
+  "F": 1296379,
+  "H": 8869,
+  "I": 3723793,
+  "J": 2,
+  "L": 210706,
+  "P": 1461010,
+  "Q": 17700,
+  "R": 8849,
+  "S": 6,
+  "U": 21253951,
+  "V": 1,
+  "X": 2358032,
+  "Y": 8959
+ },
+ "system_events_first_ts_ns": {
+  "C": 72300000037782,
+  "E": 72000000030273,
+  "M": 57600000058633,
+  "O": 10970642174571,
+  "Q": 34200000075128,
+  "S": 14400000186600
+ },
+ "symbols_by_messages": [
+  {
+   "symbol": "SPY",
+   "locate": 7397,
+   "messages": 2113960,
+   "adds": 982988,
+   "executions": 57034
+  },
+  {
+   "symbol": "QQQ",
+   "locate": 6527,
+   "messages": 1840057,
+   "adds": 876659,
+   "executions": 21828
+  },
+  {
+   "symbol": "IWM",
+   "locate": 4323,
+   "messages": 1729137,
+   "adds": 821480,
+   "executions": 24743
+  },
+  {
+   "symbol": "URTY",
+   "locate": 8137,
+   "messages": 1422344,
+   "adds": 587415,
+   "executions": 412
+  },
+  {
+   "symbol": "TQQQ",
+   "locate": 7866,
+   "messages": 1414624,
+   "adds": 665147,
+   "executions": 14085
+  },
+  {
+   "symbol": "AAPL",
+   "locate": 14,
+   "messages": 1315843,
+   "adds": 611614,
+   "executions": 59822
+  },
+  {
+   "symbol": "MSFT",
+   "locate": 5289,
+   "messages": 1211421,
+   "adds": 567984,
+   "executions": 27350
+  },
+  {
+   "symbol": "MU",
+   "locate": 5334,
+   "messages": 1172631,
+   "adds": 553525,
+   "executions": 25464
+  },
+  {
+   "symbol": "QLD",
+   "locate": 6516,
+   "messages": 964534,
+   "adds": 451023,
+   "executions": 1909
+  },
+  {
+   "symbol": "AMD",
+   "locate": 337,
+   "messages": 946325,
+   "adds": 439847,
+   "executions": 42565
+  },
+  {
+   "symbol": "EWZ",
+   "locate": 2684,
+   "messages": 918723,
+   "adds": 425308,
+   "executions": 6579
+  },
+  {
+   "symbol": "TZA",
+   "locate": 8005,
+   "messages": 873896,
+   "adds": 404988,
+   "executions": 2514
+  },
+  {
+   "symbol": "DIA",
+   "locate": 2034,
+   "messages": 850335,
+   "adds": 385729,
+   "executions": 4252
+  },
+  {
+   "symbol": "PFE",
+   "locate": 6104,
+   "messages": 843758,
+   "adds": 385431,
+   "executions": 39736
+  },
+  {
+   "symbol": "SQQQ",
+   "locate": 7408,
+   "messages": 824464,
+   "adds": 391929,
+   "executions": 4541
+  },
+  {
+   "symbol": "GOOG",
+   "locate": 3459,
+   "messages": 820655,
+   "adds": 370500,
+   "executions": 8646
+  },
+  {
+   "symbol": "INTC",
+   "locate": 4184,
+   "messages": 815482,
+   "adds": 385610,
+   "executions": 20470
+  },
+  {
+   "symbol": "FB",
+   "locate": 2741,
+   "messages": 795570,
+   "adds": 357910,
+   "executions": 40361
+  },
+  {
+   "symbol": "UVXY",
+   "locate": 8209,
+   "messages": 776378,
+   "adds": 364969,
+   "executions": 18255
+  },
+  {
+   "symbol": "VXX",
+   "locate": 8449,
+   "messages": 755545,
+   "adds": 345687,
+   "executions": 21161
+  },
+  {
+   "symbol": "XLE",
+   "locate": 8682,
+   "messages": 753312,
+   "adds": 351737,
+   "executions": 9061
+  },
+  {
+   "symbol": "TVIX",
+   "locate": 7968,
+   "messages": 749870,
+   "adds": 349949,
+   "executions": 20618
+  },
+  {
+   "symbol": "GOOGL",
+   "locate": 3460,
+   "messages": 748932,
+   "adds": 325952,
+   "executions": 7667
+  },
+  {
+   "symbol": "XLK",
+   "locate": 8687,
+   "messages": 740210,
+   "adds": 343328,
+   "executions": 7145
+  },
+  {
+   "symbol": "TNA",
+   "locate": 7812,
+   "messages": 737002,
+   "adds": 337286,
+   "executions": 6733
+  },
+  {
+   "symbol": "XLV",
+   "locate": 8697,
+   "messages": 703127,
+   "adds": 332364,
+   "executions": 10085
+  },
+  {
+   "symbol": "SMH",
+   "locate": 7236,
+   "messages": 692427,
+   "adds": 322242,
+   "executions": 4814
+  },
+  {
+   "symbol": "C",
+   "locate": 1148,
+   "messages": 626226,
+   "adds": 295464,
+   "executions": 10626
+  },
+  {
+   "symbol": "XLI",
+   "locate": 8686,
+   "messages": 600186,
+   "adds": 280060,
+   "executions": 7254
+  },
+  {
+   "symbol": "MYL",
+   "locate": 5381,
+   "messages": 595062,
+   "adds": 277308,
+   "executions": 18963
+  },
+  {
+   "symbol": "UWM",
+   "locate": 8210,
+   "messages": 589231,
+   "adds": 241685,
+   "executions": 1207
+  },
+  {
+   "symbol": "XBI",
+   "locate": 8656,
+   "messages": 580824,
+   "adds": 271539,
+   "executions": 9020
+  },
+  {
+   "symbol": "QCOM",
+   "locate": 6494,
+   "messages": 570437,
+   "adds": 266627,
+   "executions": 19745
+  },
+  {
+   "symbol": "MT",
+   "locate": 5300,
+   "messages": 568449,
+   "adds": 207130,
+   "executions": 4045
+  },
+  {
+   "symbol": "VOO",
+   "locate": 8366,
+   "messages": 566909,
+   "adds": 257853,
+   "executions": 2276
+  },
+  {
+   "symbol": "NUGT",
+   "locate": 5682,
+   "messages": 565774,
+   "adds": 261397,
+   "executions": 11649
+  },
+  {
+   "symbol": "IVV",
+   "locate": 4315,
+   "messages": 564728,
+   "adds": 257957,
+   "executions": 7010
+  },
+  {
+   "symbol": "WFC",
+   "locate": 8515,
+   "messages": 560918,
+   "adds": 260608,
+   "executions": 12992
+  },
+  {
+   "symbol": "HAL",
+   "locate": 3611,
+   "messages": 551298,
+   "adds": 259680,
+   "executions": 11766
+  },
+  {
+   "symbol": "CSCO",
+   "locate": 1740,
+   "messages": 541312,
+   "adds": 252502,
+   "executions": 10839
+  },
+  {
+   "symbol": "BABA",
+   "locate": 689,
+   "messages": 534038,
+   "adds": 236639,
+   "executions": 31797
+  },
+  {
+   "symbol": "NVDA",
+   "locate": 5702,
+   "messages": 532209,
+   "adds": 244229,
+   "executions": 13599
+  },
+  {
+   "symbol": "PYPL",
+   "locate": 6474,
+   "messages": 531597,
+   "adds": 242929,
+   "executions": 24002
+  },
+  {
+   "symbol": "XOP",
+   "locate": 8714,
+   "messages": 529063,
+   "adds": 243967,
+   "executions": 10251
+  },
+  {
+   "symbol": "TLT",
+   "locate": 7789,
+   "messages": 528838,
+   "adds": 246494,
+   "executions": 6227
+  },
+  {
+   "symbol": "TWTR",
+   "locate": 7988,
+   "messages": 524137,
+   "adds": 246663,
+   "executions": 10423
+  },
+  {
+   "symbol": "SVXY",
+   "locate": 7549,
+   "messages": 512995,
+   "adds": 240997,
+   "executions": 3980
+  },
+  {
+   "symbol": "XLB",
+   "locate": 8680,
+   "messages": 509851,
+   "adds": 241383,
+   "executions": 4334
+  },
+  {
+   "symbol": "BP",
+   "locate": 993,
+   "messages": 508576,
+   "adds": 231180,
+   "executions": 7866
+  },
+  {
+   "symbol": "XLU",
+   "locate": 8695,
+   "messages": 508518,
+   "adds": 231803,
+   "executions": 11359
+  }
+ ]
+}

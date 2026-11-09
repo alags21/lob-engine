@@ -14,3 +14,12 @@ build*/
 compile_commands.json
 fuzz-out/
 fuzz-fail-seed*.log
+
+# Raw market data must never be committed (Stage 7)
+*.gz
+*.itch
+*ITCH50*
+*.NASDAQ_ITCH50*
+data/
+itch_out/
+*.pcap

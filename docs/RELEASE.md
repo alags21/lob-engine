@@ -1,6 +1,6 @@
 # Release checklist: merging the stacked PRs and tagging v0.1.0
 
-Nothing has been merged or tagged. The work is a stack of seven pull requests, each based on the
+Nothing has been merged or tagged. The work is a stack of eight pull requests, each based on the
 previous stage's branch:
 
 | PR | Branch | Base |
@@ -12,8 +12,9 @@ previous stage's branch:
 | #5 | `stage-4-concurrency` | `stage-3-performance` |
 | #6 | `stage-5-visualizer` | `stage-4-concurrency` |
 | #7 | `stage-6-polish` | `stage-5-visualizer` |
+| #8 | `stage-7-real-data` | `stage-6-polish` |
 
-Do **not** tag until all seven are on `main`: a tag on an unmerged stacked branch points at a commit
+Do **not** tag until all eight are on `main`: a tag on an unmerged stacked branch points at a commit
 that is not part of the project's mainline history.
 
 ## Before merging (owner decisions)
@@ -22,7 +23,8 @@ that is not part of the project's mainline history.
 2. **Pages.** `.github/workflows/pages.yml` is manual-trigger only. To publish the visualizer, enable
    Pages (Settings > Pages > Source: GitHub Actions) and run the workflow by hand. Skip if not wanted.
 3. **Visibility.** The repository is private; changing that is a separate, deliberate step.
-4. Confirm CI is green on the tip of PR #7 (it contains everything below it).
+4. Confirm CI is green on the tip of PR #8 (it contains everything below it).
+5. The raw Nasdaq ITCH file is not in the repository and must never be added (its redistribution terms are unclear); `scripts/check_repo_size.py` enforces this in CI.
 
 ## Merge order
 
@@ -33,8 +35,8 @@ identity; then each following PR needs only a base change and stays clean.
 # 1. PR #1 into main
 gh pr merge 1 --merge
 
-# 2. for each next PR N = 2..7, retarget it to main and merge it, in order
-for n in 2 3 4 5 6 7; do
+# 2. for each next PR N = 2..8, retarget it to main and merge it, in order
+for n in 2 3 4 5 6 7 8; do
   gh pr edit $n --base main
   # wait for CI on the retargeted PR if you want to be careful, then:
   gh pr merge $n --merge
@@ -53,7 +55,7 @@ git fetch origin
 git rebase --onto origin/main stage-0-scaffold stage-1-core
 git push --force-with-lease origin stage-1-core
 gh pr edit 2 --base main
-# repeat for stage-2-correctness (old base stage-1-core) ... stage-6-polish (old base stage-5-visualizer)
+# repeat for stage-2-correctness (old base stage-1-core) ... stage-7-real-data (old base stage-6-polish)
 ```
 
 (Force-pushing is only appropriate here because these are private stacked branches.)

@@ -1,0 +1,181 @@
+{
+ "symbols_total": 8849,
+ "symbols_with_continuous_executions": 7247,
+ "symbols_with_at_least_200_continuous_executions": 3335,
+ "continuous_checked": 7631594,
+ "continuous_mismatched": 115364,
+ "symbols_with_zero_mismatches_among_active": 771,
+ "active_symbol_mismatch_rate_quantiles": {
+  "p10": 0.0,
+  "p25": 0.0006527415143603133,
+  "p50": 0.005568814638027049,
+  "p75": 0.016149068322981366,
+  "p90": 0.032643163588882675,
+  "max": 0.5426008968609866
+ },
+ "share_of_mismatches_in_top_10_symbols": 0.12944246038625568,
+ "share_of_mismatches_in_top_100_symbols": 0.38479941749592594,
+ "top_symbols_by_mismatches": [
+  {
+   "symbol": "MDR",
+   "continuous_checked": 20673,
+   "continuous_mismatched": 5935
+  },
+  {
+   "symbol": "PFE",
+   "continuous_checked": 38883,
+   "continuous_mismatched": 2304
+  },
+  {
+   "symbol": "SPY",
+   "continuous_checked": 54645,
+   "continuous_mismatched": 1451
+  },
+  {
+   "symbol": "AAPL",
+   "continuous_checked": 49172,
+   "continuous_mismatched": 931
+  },
+  {
+   "symbol": "QCOM",
+   "continuous_checked": 19620,
+   "continuous_mismatched": 922
+  },
+  {
+   "symbol": "IWM",
+   "continuous_checked": 24349,
+   "continuous_mismatched": 787
+  },
+  {
+   "symbol": "AMD",
+   "continuous_checked": 32973,
+   "continuous_mismatched": 672
+  },
+  {
+   "symbol": "MSFT",
+   "continuous_checked": 26904,
+   "continuous_mismatched": 661
+  },
+  {
+   "symbol": "HAL",
+   "continuous_checked": 11749,
+   "continuous_mismatched": 658
+  },
+  {
+   "symbol": "PYPL",
+   "continuous_checked": 23836,
+   "continuous_mismatched": 612
+  }
+ ],
+ "highest_rate_symbols_min_1000_checked": [
+  {
+   "symbol": "XLC",
+   "etp": 1,
+   "continuous_checked": 1294,
+   "continuous_mismatched": 528
+  },
+  {
+   "symbol": "MDR",
+   "etp": 0,
+   "continuous_checked": 20673,
+   "continuous_mismatched": 5935
+  },
+  {
+   "symbol": "EGO",
+   "etp": 0,
+   "continuous_checked": 1035,
+   "continuous_mismatched": 133
+  },
+  {
+   "symbol": "SU",
+   "etp": 0,
+   "continuous_checked": 2325,
+   "continuous_mismatched": 281
+  },
+  {
+   "symbol": "BT",
+   "etp": 0,
+   "continuous_checked": 1173,
+   "continuous_mismatched": 136
+  },
+  {
+   "symbol": "HLIT",
+   "etp": 0,
+   "continuous_checked": 3481,
+   "continuous_mismatched": 362
+  },
+  {
+   "symbol": "ITB",
+   "etp": 1,
+   "continuous_checked": 2813,
+   "continuous_mismatched": 289
+  },
+  {
+   "symbol": "STM",
+   "etp": 0,
+   "continuous_checked": 1236,
+   "continuous_mismatched": 117
+  },
+  {
+   "symbol": "TSM",
+   "etp": 0,
+   "continuous_checked": 3317,
+   "continuous_mismatched": 280
+  },
+  {
+   "symbol": "FIT",
+   "etp": 0,
+   "continuous_checked": 1318,
+   "continuous_mismatched": 111
+  }
+ ],
+ "spearman_mismatch_rate_vs_P_shares_per_executed_share": -0.20461922666529067,
+ "spearman_mismatch_rate_vs_P_trades_per_execution": -0.011767516379296223,
+ "spearman_mismatch_rate_vs_continuous_executions": 0.2752646761843654,
+ "by_quartile_of_P_shares_per_executed_share": [
+  {
+   "symbols": 833,
+   "p_ratio_min": 0.0,
+   "p_ratio_max": 0.1273420370739486,
+   "checked": 1941477,
+   "mismatched": 32237,
+   "rate": 0.016604368735761484
+  },
+  {
+   "symbols": 834,
+   "p_ratio_min": 0.12735849056603774,
+   "p_ratio_max": 0.18547402237285604,
+   "checked": 2253503,
+   "mismatched": 36724,
+   "rate": 0.01629640608421644
+  },
+  {
+   "symbols": 834,
+   "p_ratio_min": 0.18561271434546214,
+   "p_ratio_max": 0.27831606333826764,
+   "checked": 1967285,
+   "mismatched": 24832,
+   "rate": 0.012622472087165815
+  },
+  {
+   "symbols": 834,
+   "p_ratio_min": 0.27847738549474416,
+   "p_ratio_max": 1.5464375746318164,
+   "checked": 1324428,
+   "mismatched": 19951,
+   "rate": 0.015063861531166662
+  }
+ ],
+ "etp_stocks": {
+  "symbols": 6701,
+  "checked": 7063882,
+  "mismatched": 99770,
+  "rate": 0.014123961866860177
+ },
+ "etp_etps": {
+  "symbols": 2148,
+  "checked": 567712,
+  "mismatched": 15594,
+  "rate": 0.02746815286624204
+ }
+}
