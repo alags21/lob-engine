@@ -38,5 +38,28 @@ Skeleton. Filled in per stage; final tradeoffs in Stage 6.
   obvious correctness; the Stage 3 benchmark will use it as the baseline.
 - **Not thread-safe**; concurrency arrives in Stage 4.
 
+## Stage 2: verification design
+- **Reference model** (`tests/reference/`): `std::map<Price, std::deque>` per side, no id index and
+  no cached totals (cancel/modify scan every level). Written from the semantics above rather than
+  copied from `OrderBook`, so a shared misunderstanding is still possible; it is an oracle for
+  implementation bugs, not for the spec.
+- **Differential fuzzing** (`tests/fuzz/`): a splitmix64-seeded generator (same stream on every
+  platform; no `std::` distributions) feeds both books. Every op compares the returned status and
+  the full emitted event sequence; every `--check-every` ops (1 in unit tests/Debug/ASan, 16 in the
+  long runs) it also compares all levels and every level's queue (so FIFO order) and runs
+  `OrderBook::validate()`. The stream mixes GTC/IOC/FOK limits, markets (with ignored prices),
+  cancels and modifies (mostly of open orders, some stale/unknown), and invalid or duplicate-id
+  submits around a drifting mid so the book crosses often. A pool-size thermostat keeps the book at
+  hundreds to a few thousand orders so the O(n) reference stays tractable.
+- **Invariants** (`OrderBook::validate()`): no crossed/locked book, no empty level, no non-positive
+  quantity, level total equals the sum of its orders, id index matches the levels exactly (side,
+  price, iterator). In builds without `NDEBUG` every public mutating call runs it and aborts on
+  failure. FIFO cannot be derived from state alone, so it is covered by the differential queue
+  comparison.
+- **Fuzzer sanity check**: with a deliberately broken FOK pre-check applied locally (not
+  committed), the fuzzer reported a mismatch at op 242 of seed 1.
+- **Op log / event format**: see `docs/EVENT_FORMAT.md`. Text, one record per line, so logs diff
+  cleanly and failing fuzz runs are replayable with `lob_replay`.
+
 ## Decisions
 - No exceptions for expected failures; calls return `RejectReason`.

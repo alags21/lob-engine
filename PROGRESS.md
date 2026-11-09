@@ -3,8 +3,8 @@
 | Stage | Scope | Status | PR |
 |---|---|---|---|
 | 0 | Scaffold, CI | in review (CI green) | #1 |
-| 1 | Core book | in review | #2 |
-| 2 | Correctness harness | not started | |
+| 1 | Core book | in review (CI green) | #2 |
+| 2 | Correctness harness | in review (CI green) | #3 |
 | 3 | Performance | not started | |
 | 4 | Concurrency | not started | |
 | 5 | Replay and visualizer | not started | |
@@ -21,17 +21,39 @@ modify; price-time priority; trades at maker price; synchronous event callback (
 Trade, Cancelled, Modified); integer ticks and lots. 63 GoogleTest cases in
 `tests/test_order_book.cpp` plus 1 smoke test (64 total, all passing locally with MSVC 14.50).
 
-## Next
-Stage 2: reference model (`std::map` + `std::deque`), differential fuzzing, invariant checks,
-event-log record/replay format. Starts only after approval.
-
-## Known gaps
-- Storage is `std::map` + `std::list` + `std::unordered_map`: correct but allocation-heavy; Stage 3
-  replaces it driven by profiling.
-- No self-trade prevention (the book has no participant identity).
-- Only one platform compiled locally (MSVC); gcc/clang are covered by CI only.
-- Invariant checker and fuzzing do not exist yet (Stage 2); correctness is currently from unit tests only.
-- No measurements taken yet.
+Stage 2: reference model (`tests/reference/`), seeded differential fuzzer (`tests/fuzz/`, `lob_fuzz`
+executable plus a 5-seed x 40k-op GoogleTest), `OrderBook::validate()` invariant checker run after
+every public call in non-NDEBUG builds, deterministic text op log / event format
+(`docs/EVENT_FORMAT.md`, `lob_replay` tool, hand-checked golden log). 73 ctest cases total, all
+passing locally. CI: fuzz in the Release jobs (1.5M ops per compiler: seeds 1-2 at 500k each, plus
+one run-number-derived seed at 500k), Debug jobs (100k ops, state and invariants checked every
+op), ASan+UBSan job (200k ops), and a scheduled nightly workflow (`nightly-fuzz.yml`, default
+10 seeds x 5M ops, date-derived seeds).
 
 ## Measured results
-None yet. Numbers appear here only after they are measured and saved under `bench/results/`.
+Local fuzz run, `docs/results/fuzz_local_stage2.txt` (MSVC 14.50, checked build, state checked
+every 16 ops): seeds 1, 2, 3 x 1,000,000 ops = 3,000,000 ops, 4,601,135 events emitted, 1,301,514
+trades, 0 mismatches, largest resting book 4,928 orders, 178.9 s wall (includes the O(n) reference
+model; this is not a throughput benchmark). Fuzzing found no bug in the Stage 1 book.
+
+CI fuzz results (Actions run 42132275051 on PR #3, taken from the job logs, all passed with 0
+mismatches): gcc and clang Release each ran seeds 1, 2 (500,000 ops each, 1,530,900 events,
+430,010 trades) and seed 100005 (500,000 ops, 764,848 events, 214,644 trades), i.e. 1.5M ops per
+compiler, in about 1.1-3.5 s per command. Debug (gcc, clang): seed 1, 100,000 ops, state and
+invariants checked every op, 15-21 s. ASan+UBSan: seed 1, 200,000 ops, 216 s.
+
+## Next
+Stage 3: performance (profile-driven data structure work, benchmark harness with histograms,
+before/after table). Starts only after approval.
+
+## Known gaps
+- Reference model and `OrderBook` share one author and one spec; a misreading of the spec would be
+  replicated in both. The hand-checked golden log and the unit tests are the independent check.
+- Fuzz prices are confined to a band of roughly 60-140 ticks, quantities to at most 120; extreme
+  values are only covered by one unit test.
+- No coverage measurement yet.
+- The nightly workflow only runs on GitHub's schedule or manual dispatch after it is on `main`;
+  it has not been executed yet.
+- Storage is still the naive `std::map` + `std::list` baseline; no measurements taken (Stage 3).
+- No self-trade prevention (no participant identity).
+- Local builds are MSVC only; gcc/clang are covered by CI.

@@ -12,3 +12,5 @@ __pycache__/
 build*/
 .cache/
 compile_commands.json
+fuzz-out/
+fuzz-fail-seed*.log

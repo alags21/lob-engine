@@ -4,6 +4,7 @@
 #include <list>
 #include <map>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -60,8 +61,18 @@ class OrderBook {
   std::vector<RestingOrder> orders_at(Side side, Price price) const;
   /// Levels from best to worst.
   std::vector<LevelInfo> levels(Side side) const;
+  /// Checks the book's internal invariants: no crossed book, no empty level or zero/negative
+  /// quantity, level totals match their orders, and the id index matches the levels exactly.
+  /// Returns an empty string if all hold, otherwise a description of the first violation.
+  /// (FIFO order is not checkable from state alone; it is verified by differential fuzzing.)
+  /// In debug builds (NDEBUG undefined) every public mutating call runs this and aborts on failure.
+  std::string validate() const;
   std::size_t order_count() const { return index_.size(); }
   bool empty() const { return index_.empty(); }
+
+ public:
+  /// Used by the debug-build guard; aborts if validate() fails.
+  void debug_check_public() const;
 
  private:
   struct Level {

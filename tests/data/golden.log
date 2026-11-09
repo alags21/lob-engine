@@ -1,0 +1,22 @@
+# Golden scenario: resting orders, sweep with partial fill, IOC, FOK kill, market, cancel,
+# modify (priority kept / lost / crossing), and rejects.
+S 1 S L GTC 101 5
+S 2 S L GTC 101 7
+S 3 S L GTC 102 4
+S 4 B L GTC 99 10
+S 5 B L GTC 99 3
+S 6 B L GTC 98 6
+S 7 B L GTC 102 14
+S 8 S L IOC 99 20
+S 9 B L FOK 100 50
+S 10 S M GTC 0 4
+C 5
+C 5
+M 4 99 6
+M 6 98 9
+S 11 B L GTC 97 2
+M 11 103 5
+S 12 S L GTC 0 3
+S 13 B L GTC 100 0
+S 4 S L GTC 120 1
+M 99 100 1

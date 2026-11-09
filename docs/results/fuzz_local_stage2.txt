@@ -1,0 +1,9 @@
+# Local differential fuzz run (Stage 2). Not a benchmark: runtime includes the O(n) reference model.
+date: 2026-11-05T23:45Z
+base commit: cab5827 (+ uncommitted Stage 2 work at time of run)
+platform: Windows 11, MSVC 14.50, flags: /O2 (no NDEBUG, so debug invariant guard active)
+command: build/tests/lob_fuzz.exe --seed 1 --ops 1000000 --runs 3 --check-every 16
+seed=1 ops=1000000
+seed=2 ops=1000000
+seed=3 ops=1000000
+PASS runs=3 first_seed=1 ops=3000000 events=4601135 trades=1301514 max_resting=4928 seconds=178.9
