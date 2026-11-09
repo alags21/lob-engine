@@ -9,3 +9,6 @@ cmake-build-*/
 .env
 .env.*
 __pycache__/
+build*/
+.cache/
+compile_commands.json
