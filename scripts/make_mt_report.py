@@ -141,6 +141,21 @@ def env_block(d):
     ])
 
 
+def short_verdicts(d):
+    """One line per workload for README/PROGRESS/DESIGN; the full analysis lives in docs/CONCURRENCY.md."""
+    lines = []
+    for wl in WORKLOADS:
+        try:
+            s, cv, mb, st = d["spsc"][wl], d["mutex-cv-queue"][wl], d["mutex-book"][wl], d["single-thread"][wl]
+        except KeyError:
+            continue
+        r_cv, r_mb = tp(s) / tp(cv), tp(s) / tp(mb)
+        lines.append(f"- `{wl}`: SPSC is {r_cv:.2f}x the mutex+condvar queue ({'a win' if r_cv > 1 else 'a LOSS'}) and {r_mb:.2f}x the mutex-protected book "
+                     f"({'a win' if r_mb > 1 else 'a LOSS: the lock-only design with no hand-off is faster'}); it reaches {100 * tp(s) / tp(st):.0f}% of the single-thread ceiling. "
+                     f"Paced median latency {s['latency_ns']['p50']['median']:.0f} ns vs {cv['latency_ns']['p50']['median']:.0f} ns (mutex+condvar) and {mb['latency_ns']['p50']['median']:.0f} ns (mutex-book).")
+    return "\n".join(lines)
+
+
 def headline(d):
     lines = ["| workload | single-thread Mops/s | SPSC Mops/s | mutex+condvar Mops/s | mutex-book Mops/s | SPSC paced p99 ns | mutex+condvar paced p99 ns | mutex-book paced p99 ns |",
              "|---|---|---|---|---|---|---|---|"]
@@ -152,7 +167,8 @@ def headline(d):
         p = lambda j: f"{j['latency_ns']['p99']['median']:.0f}"
         lines.append(f"| {wl} | {tp(st):.2f} | {tp(s):.2f} | {tp(cv):.2f} | {tp(mb):.2f} | {p(s)} | {p(cv)} | {p(mb)} |")
     return ("Stage 4, producer thread -> queue -> matching thread (medians of repeated runs; latency measured from the intended send time at a "
-            "fixed paced rate; see docs/CONCURRENCY.md for method, ablations and caveats).\n\n" + "\n".join(lines) + "\n\n" + verdicts(d))
+            "fixed paced rate; see docs/CONCURRENCY.md for method, ablations and caveats).\n\n" + "\n".join(lines) + "\n\n" + short_verdicts(d)
+            + "\n\nTail latency (p99 and above) on this machine is dominated by OS interference; see docs/CONCURRENCY.md.")
 
 
 def replace_block(path, name, body):
