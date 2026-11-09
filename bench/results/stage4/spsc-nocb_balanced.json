@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "spsc-nocb",
+  "commit": "b59e027",
+  "queue": "spsc",
+  "environment": {
+    "cpu": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       ",
+    "logical_cores": 24,
+    "os": "Windows-11-10.0.26200-SP0",
+    "flags": "Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG",
+    "cpu_load_percent_before_run": 14.6,
+    "note": "Desktop machine, not isolated: normal background load, turbo/boost not controlled.",
+    "producer_cpu": 4,
+    "consumer_cpu": 6,
+    "pinning": "detected 12 physical cores; used the first logical CPU of physical cores #2 and #3 (logical 4 and 6)",
+    "clock": {"name": "rdtsc (lfence-serialised); producer and consumer timestamps compared across cores", "ticks_per_ns": 1.99616, "timestamp_pair_overhead_ns": 40.0768, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": -34.5663, "min_one_way_handoff_ns": 95.1825, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": false, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "balanced", "seed": 1, "ops": 1000000, "events": 1273165, "trades": 251095},
+  "checksum": "c92d4a005eec83da",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [6.30374e+06, 5.92123e+06, 5.84865e+06, 5.85154e+06, 6.10151e+06, 6.1378e+06, 5.9463e+06], "median": 5.9463e+06, "min": 5.84865e+06, "max": 6.30374e+06, "cv_pct": 2.61955},
+  "latency_ns": {"p50": {"reps": [333.139, 347.166, 341.154, 343.158, 343.158, 347.166, 341.154], "median": 343.158, "min": 333.139, "max": 347.166, "cv_pct": 1.28474}, "p99": {"reps": [6827.59, 9.64635e+06, 333807, 1.2094e+07, 491407, 541900, 298172], "median": 491407, "min": 6827.59, "max": 1.2094e+07, "cv_pct": 143.721}, "p99_9": {"reps": [222441, 1.96542e+07, 551352, 1.79949e+07, 1.29207e+07, 1.34806e+07, 552478], "median": 1.29207e+07, "min": 222441, "max": 1.96542e+07, "cv_pct": 85.7384}, "max": {"reps": [568090, 2.12715e+07, 787931, 1.98113e+07, 1.47111e+07, 1.52789e+07, 1.01318e+06], "median": 1.47111e+07, "min": 568090, "max": 2.12715e+07, "cv_pct": 82.643}},
+  "behind_schedule_fraction": {"reps": [0.004694, 0.034917, 0.018766, 0.031785, 0.024862, 0.01988, 0.016101], "median": 0.01988, "min": 0.004694, "max": 0.034917, "cv_pct": 43.5829},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 0, 0, 0, 358662, 5837601, 399794, 22108, 18569, 33581, 43660, 26565, 23734, 38655, 59267, 67205, 11868, 3843, 6769, 13619, 29762, 4738, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

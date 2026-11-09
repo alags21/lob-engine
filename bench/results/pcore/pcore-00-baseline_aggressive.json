@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "label": "pcore-00-baseline",
+  "commit": "bebb8ed",
+  "environment": {
+    "cpu": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       ",
+    "logical_cores": 24,
+    "os": "Windows-11-10.0.26200-SP0",
+    "compiler": "msvc 195035723",
+    "flags": "Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG",
+    "pinned_cpu": 4,
+    "cpu_load_percent_before_run": 10.6,
+    "note": "Desktop machine, not isolated: normal background load, turbo/boost not controlled.",
+    "clock": {"name": "rdtsc (lfence-serialised), converted with steady_clock calibration", "ticks_per_ns": 1.99616, "timestamp_pair_overhead_ns": 40.077}
+  },
+  "method": {"model": "closed loop, single thread; per-op service time, no queueing", "warmup_reps": 1, "measured_reps": 7, "throughput": "wall time of whole loop, no per-op timers", "latency": "per-op TSC timestamps, timer overhead not subtracted"},
+  "workload": {"name": "aggressive", "seed": 1, "ops": 2000000, "submit_pct": 70, "cancel_pct": 20, "modify_pct": 10, "aggressive_pct": 55, "depth_mean": 8, "book_target": 1000, "realised": {"submits": 1247538, "cancels": 552257, "modifies": 200205}, "events": 3075696, "trades": 755882, "final_resting_orders": 383},
+  "checksum": "0b7aca446d0f72d0",
+  "allocations_per_run": 1527633,
+  "allocations_per_op": 0.763817,
+  "throughput_ops_per_sec": {"reps": [6.38605e+06, 6.35939e+06, 5.4059e+06, 5.9662e+06, 6.06646e+06, 5.92678e+06, 5.94363e+06], "median": 5.9662e+06, "min": 5.4059e+06, "max": 6.38605e+06, "cv_pct": 5.05193},
+  "latency_ns": {
+    "p50": {"reps": [150.289, 150.289, 150.289, 150.289, 150.289, 150.289, 150.289], "median": 150.289, "min": 150.289, "max": 150.289, "cv_pct": 1.89114e-14},
+    "p99": {"reps": [661.27, 681.309, 731.405, 701.347, 731.405, 711.367, 691.328], "median": 701.347, "min": 661.27, "max": 731.405, "cv_pct": 3.41494},
+    "p99_9": {"reps": [1442.77, 1462.81, 1613.1, 1542.96, 1613.1, 1563, 1542.96], "median": 1542.96, "min": 1442.77, "max": 1613.1, "cv_pct": 4.006},
+    "max": {"reps": [335494, 310126, 684154, 532874, 887094, 1.23007e+06, 692961], "median": 684154, "min": 310126, "max": 1.23007e+06, "cv_pct": 44.6443},
+    "mean": {"reps": [210.094, 208.993, 224.12, 218.586, 224.066, 220.677, 218.838], "median": 218.838, "min": 208.993, "max": 224.12, "cv_pct": 2.60765},
+    "by_kind": {"submit": {"p50": {"reps": [230.443, 230.443, 240.462, 230.443, 230.443, 230.443, 230.443], "median": 230.443, "min": 230.443, "max": 240.462, "cv_pct": 1.51203}, "p99": {"reps": [751.444, 761.463, 821.578, 781.501, 821.578, 801.54, 781.501], "median": 781.501, "min": 751.444, "max": 821.578, "cv_pct": 3.2364}}, "cancel": {"p50": {"reps": [110.212, 110.212, 110.212, 110.212, 110.212, 110.212, 110.212], "median": 110.212, "min": 110.212, "max": 110.212, "cv_pct": 1.28941e-14}, "p99": {"reps": [400.77, 410.789, 440.847, 420.808, 440.847, 420.808, 420.808], "median": 420.808, "min": 400.77, "max": 440.847, "cv_pct": 3.21588}}, "modify": {"p50": {"reps": [120.231, 120.231, 120.231, 120.231, 120.231, 120.231, 120.231], "median": 120.231, "min": 120.231, "max": 120.231, "cv_pct": 1.18196e-14}, "p99": {"reps": [671.29, 701.347, 751.444, 711.367, 751.444, 731.405, 711.367], "median": 711.367, "min": 671.29, "max": 751.444, "cv_pct": 3.70539}}}
+  },
+  "latency_histogram_log2_ns": {"note": "bucket b counts ops with 2^(b-1) <= ns < 2^b (bucket 0: <1 ns), all measured reps", "counts": [0, 0, 0, 0, 0, 0, 12562, 5616126, 3900225, 4029741, 392728, 43418, 3066, 528, 815, 457, 53, 61, 172, 32, 15, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

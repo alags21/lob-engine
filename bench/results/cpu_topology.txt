@@ -1,0 +1,27 @@
+# Output of scripts/cpu_topology_win.cpp (Windows GetSystemCpuSetInformation + CallNtPowerInformation) on the benchmark machine.
+# Higher EfficiencyClass = higher performance class on Windows. MaxMhz as reported by Windows (identical for all CPUs here, so it does not distinguish core types).
+# date: 2026-11-06T03:12Z
+logical  0 core  0 effclass 1 maxmhz 2000 curmhz 2000
+logical  1 core  0 effclass 1 maxmhz 2000 curmhz 2000
+logical  2 core  2 effclass 1 maxmhz 2000 curmhz 2000
+logical  3 core  2 effclass 1 maxmhz 2000 curmhz 2000
+logical  4 core  4 effclass 1 maxmhz 2000 curmhz 2000
+logical  5 core  4 effclass 1 maxmhz 2000 curmhz 2000
+logical  6 core  6 effclass 1 maxmhz 2000 curmhz 2000
+logical  7 core  6 effclass 1 maxmhz 2000 curmhz 2000
+logical  8 core  8 effclass 0 maxmhz 2000 curmhz 2000
+logical  9 core  8 effclass 0 maxmhz 2000 curmhz 2000
+logical 10 core 10 effclass 0 maxmhz 2000 curmhz 2000
+logical 11 core 10 effclass 0 maxmhz 2000 curmhz 2000
+logical 12 core 12 effclass 0 maxmhz 2000 curmhz 2000
+logical 13 core 12 effclass 0 maxmhz 2000 curmhz 2000
+logical 14 core 14 effclass 0 maxmhz 2000 curmhz 2000
+logical 15 core 14 effclass 0 maxmhz 2000 curmhz 2000
+logical 16 core 16 effclass 0 maxmhz 2000 curmhz 2000
+logical 17 core 16 effclass 0 maxmhz 2000 curmhz 2000
+logical 18 core 18 effclass 0 maxmhz 2000 curmhz 2000
+logical 19 core 18 effclass 0 maxmhz 2000 curmhz 2000
+logical 20 core 20 effclass 0 maxmhz 2000 curmhz 2000
+logical 21 core 20 effclass 0 maxmhz 2000 curmhz 2000
+logical 22 core 22 effclass 0 maxmhz 2000 curmhz 2000
+logical 23 core 22 effclass 0 maxmhz 2000 curmhz 2000

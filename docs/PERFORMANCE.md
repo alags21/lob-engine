@@ -61,3 +61,13 @@ CI runners are shared and noisy; no CI timing is published here. CI only checks 
 | 99-baseline-rerun | Baseline binary measured again at the end of each workload block (drift check) | re-measure | 4.28 (3.6%) | 0.92x | 260 | 802 | 1884 | 993196 | 0.811 | yes |
 
 Latency columns are medians across repetitions of per-op percentiles (overall, all op kinds). CV is the coefficient of variation of throughput across repetitions. The max column is dominated by OS scheduling interruptions on a non-isolated desktop, not by the book. The re-measure row runs the unchanged baseline binary again after the other steps of the same workload; its distance from the first baseline row is a direct estimate of drift between runs, so differences between steps smaller than that are not meaningful. "Same events as baseline" compares an FNV hash of every emitted event plus the final book between implementations on the identical op stream.
+
+## Core-type check
+
+This CPU has mixed core types (see bench/results/cpu_topology.txt). The main results above were pinned to logical CPU 8, which Windows reports as efficiency class 0; the highest class is 1. As a check, the baseline and final binaries were re-run pinned to logical CPU 4 (efficiency class 1), same workloads and method, each run once after the other (not interleaved with the main table):
+
+| workload | baseline Mops/s (CV) | final Mops/s (CV) | speedup | baseline p99 ns | final p99 ns |
+|---|---|---|---|---|---|
+| passive | 4.72 (4.1%) | 11.92 (3.3%) | 2.53x | 651 | 281 |
+| aggressive | 5.97 (5.1%) | 12.78 (4.4%) | 2.14x | 701 | 311 |
+| balanced | 4.74 (4.6%) | 10.14 (5.7%) | 2.14x | 721 | 361 |
