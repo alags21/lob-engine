@@ -161,6 +161,7 @@ It ships with a sample run of the C++ engine on synthetic orders.
 | ASan + UBSan | `cmake -DLOB_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug ...` (Linux, clang or gcc) |
 | ThreadSanitizer | `cmake -DLOB_TSAN=ON ...` then run `lob_tests --gtest_filter='SpscQueue.*:SpscStress.*:Pipeline.*'`; CI also requires TSan to flag a deliberately racy queue (`-DLOB_RACY_DEMO=ON`) |
 | Benchmarks (Windows example) | `scripts\win-build.cmd build-rel` then `python scripts/run_bench.py --label NAME`, `python scripts/run_mt_bench.py`; multi-commit comparison: `python scripts/remeasure.py` |
+| Benchmarks on another machine | `scripts/bench_macos.sh` (Apple Silicon) or `scripts\bench_windows.ps1`; see [docs/PLATFORMS.md](docs/PLATFORMS.md) |
 | Regenerate the tables | `python scripts/make_report.py` and `python scripts/make_mt_report.py` (add `--check` to fail if a file would change) |
 | Regenerate visualizer data | `python scripts/make_viz_data.py --sim <absolute path to lob_sim>` |
 | Visualizer tests | `node viz/test/viz_test.js` (mock canvas and fake DOM; pixels are checked only by screenshot, see DESIGN) |

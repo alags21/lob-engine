@@ -14,54 +14,22 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#elif defined(__linux__)
-#include <sched.h>
-#endif
-#if defined(_M_X64) || defined(__x86_64__)
-#define LOB_HAS_TSC 1
-#if defined(_MSC_VER)
-#include <intrin.h>
-#else
-#include <cpuid.h>
-#include <x86intrin.h>
-#endif
-#endif
-
 #include "itch_validate.hpp"
 #include "lob/checksum.hpp"
 #include "lob/itch.hpp"
+#include "platform.hpp"
 #include "tool_io.hpp"
 
 namespace lob::itch {
 
 namespace {
 
-inline std::uint64_t cycles() {
-#ifdef LOB_HAS_TSC
-  _mm_lfence();
-  const std::uint64_t t = __rdtsc();
-  _mm_lfence();
-  return t;
-#else
-  return static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
-#endif
-}
+using lob::bench::cpu_brand;
+using lob::bench::cycles;
+using lob::bench::pin_thread;
 
 double calibrate(double* overhead_ns) {
-  double tpn = 1.0;
-#ifdef LOB_HAS_TSC
-  using clk = std::chrono::steady_clock;
-  const auto t0 = clk::now();
-  const std::uint64_t a = cycles();
-  while (clk::now() - t0 < std::chrono::milliseconds(200)) {
-  }
-  const std::uint64_t b = cycles();
-  tpn = static_cast<double>(b - a) / std::chrono::duration<double, std::nano>(clk::now() - t0).count();
-#endif
+  const double tpn = lob::bench::ticks_per_ns();
   std::vector<std::uint64_t> d(10000);
   for (auto& x : d) {
     const std::uint64_t s = cycles();
@@ -70,43 +38,6 @@ double calibrate(double* overhead_ns) {
   std::nth_element(d.begin(), d.begin() + static_cast<std::ptrdiff_t>(d.size() / 2), d.end());
   *overhead_ns = static_cast<double>(d[d.size() / 2]) / tpn;
   return tpn;
-}
-
-std::string cpu_brand() {
-#ifdef LOB_HAS_TSC
-  int r[4] = {0};
-  char buf[49] = {0};
-  for (unsigned i = 0; i < 3; ++i) {
-#if defined(_MSC_VER)
-    __cpuid(r, static_cast<int>(0x80000002u + i));
-#else
-    __cpuid(0x80000002u + i, r[0], r[1], r[2], r[3]);
-#endif
-    std::memcpy(buf + 16 * i, r, 16);
-  }
-  std::string s(buf);
-  const auto p = s.find_first_not_of(' ');
-  return p == std::string::npos ? s : s.substr(p);
-#else
-  return "unknown";
-#endif
-}
-
-bool pin(int cpu) {
-#if defined(_WIN32)
-  SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-  return cpu >= 0 && SetThreadAffinityMask(GetCurrentThread(), 1ULL << cpu) != 0;
-#elif defined(__linux__)
-  if (cpu < 0) return false;
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  CPU_SET(cpu, &set);
-  return sched_setaffinity(0, sizeof(set), &set) == 0;
-#else
-  (void)cpu;
-  return false;
-#endif
 }
 
 struct BenchOp {
@@ -281,7 +212,7 @@ int run_bench(const BenchArgs& a) {
                locate_of_book.size());
 
   // ---- phase 2: replay the recorded stream through fresh books
-  const bool pinned = pin(a.cpu);
+  const bool pinned = pin_thread(a.cpu);
   double overhead_ns = 0;
   const double tpn = calibrate(&overhead_ns);
   std::fprintf(stderr, "replay: %zu ops, pinned=%d cpu=%d tsc=%.3f GHz overhead=%.1f ns\n", ops.size(), pinned ? 1 : 0, a.cpu, tpn, overhead_ns);
@@ -361,7 +292,7 @@ int run_bench(const BenchArgs& a) {
   j << "{\"schema\":1,\"stage\":7,\"label\":\"" << esc(a.label) << "\",\"commit\":\"" << esc(a.commit) << "\",\"input_file_name\":\"07302019.NASDAQ_ITCH50.gz\","
     << "\"environment\":{\"cpu\":\"" << esc(cpu_brand()) << "\",\"logical_cores\":" << std::thread::hardware_concurrency() << ",\"os\":\"" << esc(a.os)
     << "\",\"flags\":\"" << esc(a.flags) << "\",\"pinned_cpu\":" << (pinned ? a.cpu : -1) << ",\"cpu_load_percent_before_run\":" << a.load << ",\"note\":\""
-    << esc(a.note) << "\",\"clock\":{\"name\":\"rdtsc (lfence-serialised)\",\"ticks_per_ns\":";
+    << esc(a.note) << "\",\"clock\":{\"name\":\"" << esc(lob::bench::clock_name()) << "\",\"ticks_per_ns\":";
   std::snprintf(buf, sizeof buf, "%.6g", tpn);
   j << buf << ",\"timestamp_pair_overhead_ns\":";
   std::snprintf(buf, sizeof buf, "%.6g", overhead_ns);
