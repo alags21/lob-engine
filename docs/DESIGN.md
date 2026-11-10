@@ -9,7 +9,7 @@ limitations. Start with [Limitations](#limitations) before quoting any number.
 - `src/`: library implementation (`lob` target).
 - `tests/`: GoogleTest unit, stress, pipeline, fuzz and simulator tests; `tests/reference/` is the reference model.
 - `bench/`: single-thread (`lob_bench`) and multi-threaded (`lob_mt_bench`) benchmark harnesses, workloads, saved results.
-- `tools/`: `lob_replay`, `lob_sim`, `lob_cli`.
+- `tools/`: `lob_replay`, `lob_sim`.
 - `viz/`: the static visualizer; `scripts/`: build, benchmark, report and data-generation scripts.
 
 ## Build options
@@ -226,7 +226,7 @@ Each Stage 3 change was measured on three workloads and kept only if it helped; 
 - **Intrusive order lists (step 1)**: on its own this was *not* a measurable win (within run-to-run
   noise, and slightly slower on some workloads). It was kept anyway because the node pool needs
   nodes that carry their own links, and because it removes a per-order allocation indirection. Had
-  it been judged purely on its own row it would have been dropped; that is called out in PROGRESS.
+  it been judged purely on its own row it would have been dropped; that is called out in `docs/RESULTS.md`.
 - **Node pool (step 2)** helped modestly: it removes the system allocator from the hot path.
 - **Flat open-addressing id table (step 3)** was the largest single win: the standard
   `std::unordered_map` allocates a node per order and chases pointers on every lookup.
@@ -309,12 +309,10 @@ Read these before quoting any number from this repository.
 - **ThreadSanitizer** runs only in Linux CI (unavailable with MSVC). A deliberately racy queue build
   confirms TSan can fail on this code; passing TSan is evidence, not proof, of freedom from races.
 - **Visualizer.** Screenshot-checked in one browser (headless Edge, dark theme, desktop width) and
-  opened once in a browser pane by the project owner's assistant; automated checks use a mock canvas
+  opened once in a second browser by hand; automated checks use a mock canvas
   and a fake DOM and do not check pixels. Not tested: Firefox, Safari, the light theme, narrow or touch
   screens. The book animates at snapshot granularity.
 - **Real-data scope (Stage 7).** One trading day of one venue's feed, ITCH 5.0 as of 2019; the matching rules validated are our own strict price-time rules and the reference model is a second implementation by the same author, so the real feed, not the reference model, is the independent check; non-displayed quantity, participant identity and order types are invisible in ITCH, which limits explaining the FIFO deviations; the replay benchmark covers selected symbols over a pre-decoded stream in a closed loop on a non-isolated desktop.
-- **Not yet merged or released.** The work is a stack of pull requests; see [RELEASE.md](RELEASE.md).
-  No license file has been added.
 
 ## Decisions
 - No exceptions for expected failures; calls return `RejectReason`.

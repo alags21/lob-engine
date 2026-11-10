@@ -4,12 +4,11 @@
 For each workload, benchmarks every step's binary back to back (then the baseline again as
 "99-baseline-rerun" to expose machine drift), so slow drift (thermal, boost, background load)
 hits all steps alike. Each step is built in its own git worktree under --scratch.
-Usage: python scripts/remeasure.py --scratch C:/tmp/lobwt   (steps listed in STEPS)
+Usage: python scripts/remeasure.py --scratch C:/tmp/lobwt --steps "00-baseline=<commit>,01-...=<commit>"
 """
 import argparse, os, shutil, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STEPS = json_steps = None
 
 
 def run(cmd, **kw):
@@ -34,7 +33,7 @@ def main():
         if not os.path.exists(tree):
             run(["git", "worktree", "add", "--detach", tree, commit], cwd=ROOT)
         if not os.path.exists(os.path.join(tree, "build-rel", "bench", "lob_bench.exe")):
-            run(["cmd", "/c", "scripts\win-build.cmd", "build-rel"], cwd=tree)
+            run(["cmd", "/c", r"scripts\win-build.cmd", "build-rel"], cwd=tree)
     if a.build_only:
         return
     rr_label, rr_of = a.rerun.split("=")

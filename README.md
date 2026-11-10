@@ -3,7 +3,8 @@
 A C++20 limit order book and matching engine, built stage by stage with a correctness-first test
 strategy: price-time priority matching (limit, market, IOC, FOK, cancel, modify), a slow reference
 model and seeded differential fuzzing, reproducible benchmarks, a lock-free single-producer pipeline,
-and a browser visualizer. Everything runs on synthetic data only.
+a browser visualizer, and a validation run over one real Nasdaq ITCH trading day
+(the raw data is not included).
 
 What is measured and what is not is stated next to every number. All tables below are generated from
 saved result files by scripts (`scripts/make_report.py`, `scripts/make_mt_report.py`); none are typed
@@ -170,7 +171,6 @@ visualizer job. A nightly longer fuzz workflow exists but only runs once it is o
 
 ## Project status
 
-Developed in stages, one pull request each; see [PROGRESS.md](PROGRESS.md) for what each stage built,
-measured results and known gaps, [docs/PLAN.md](docs/PLAN.md) for the original plan and
-[docs/RELEASE.md](docs/RELEASE.md) for the merge order and tagging steps. No license file has been
-added yet; one is needed before the repository is made public.
+See [docs/RESULTS.md](docs/RESULTS.md) for what each stage added, the measured results and the known
+gaps, and [docs/DESIGN.md](docs/DESIGN.md) for design tradeoffs and limitations. Released under the
+[MIT License](LICENSE).

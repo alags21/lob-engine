@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/REALDATA.md and the `realdata` generated blocks in README.md / PROGRESS.md / docs/DESIGN.md
+"""Generate docs/REALDATA.md and the `realdata` generated blocks in README.md / docs/RESULTS.md / docs/DESIGN.md
 from the JSON summaries in bench/results/realdata/. No number in those places is typed by hand.
 
 Inputs (all small, derived summaries; the raw Nasdaq file is never in the repository):
@@ -323,7 +323,7 @@ def replace_block(path, name, body):
 def main():
     out = build()
     outputs = {os.path.join(ROOT, "docs", "REALDATA.md"): out["doc"]}
-    for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):
+    for path in ("README.md", os.path.join("docs", "RESULTS.md"), os.path.join("docs", "DESIGN.md")):
         new = replace_block(os.path.join(ROOT, path), "realdata", out["headline"])
         if new is not None:
             outputs[os.path.join(ROOT, path)] = new

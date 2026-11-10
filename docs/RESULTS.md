@@ -1,23 +1,10 @@
-# Progress
+# Results and known gaps
 
 Every number in this file comes from a generated block (`scripts/make_report.py`,
-`scripts/make_mt_report.py`) built from saved result files. Test and CI parameters are in the
-workflow files, not repeated here.
+`scripts/make_mt_report.py`, `scripts/make_realdata_report.py`) built from saved result files in
+`bench/results/`. Test and CI parameters are in the workflow files, not repeated here.
 
-| Stage | Scope | Status | PR |
-|---|---|---|---|
-| 0 | Scaffold, CI | in review (CI green) | #1 |
-| 1 | Core book | in review (CI green) | #2 |
-| 2 | Correctness harness | in review (CI green) | #3 |
-| 3 | Performance | in review (CI green) | #4 |
-| 4 | Concurrency | in review (CI green) | #5 |
-| 5 | Replay and visualizer | in review (CI green) | #6 |
-| 6 | Polish | in review (CI green) | #7 |
-| 7 | Real ITCH data validation | in review (CI green) | #8 |
-
-Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.md).
-
-## Built
+## What each stage added
 - **Stage 0**: CMake project (library, tests, bench, tools), clang-format, GitHub Actions (gcc and
   clang, Release and Debug, ASan+UBSan), local Windows toolchain notes in `docs/BENCHMARKING.md`
   (`scripts/win-build.cmd`).
@@ -38,7 +25,7 @@ Nothing is merged yet. Merge order and tagging: [docs/RELEASE.md](docs/RELEASE.m
   `lob-run-v1` JSON export with events and book snapshots, and the static offline visualizer in `viz/`.
 - **Stage 7**: ITCH 5.0 parser, per-symbol validation on one real Nasdaq day (order-level consistency, engine-picks-the-maker priority check, reference-model cross-check), tests of six hypotheses for deviations from strict FIFO, a real-stream replay benchmark, synthetic-only CI job, repository data guard (`docs/REALDATA.md`).
 - **Stage 6**: README with architecture diagram and generated tables, DESIGN tradeoffs and limitations,
-  `docs/RELEASE.md`, keyboard-reachable "Load run" control, consistency pass over generated numbers.
+  keyboard-reachable "Load run" control, consistency pass over generated numbers.
 
 ## Measured results (generated)
 
@@ -109,8 +96,6 @@ Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONC
 
 ## Known gaps
 - **Real-data scope**: one trading day, one venue's feed, ITCH 5.0 as of 2019; the FIFO deviations are only partly attributable from public data (see `docs/REALDATA.md`); the raw file is not redistributable and is not in the repository.
-- **License**: no LICENSE file has been added (the owner's choice). One is required before the
-  repository goes public.
 - **Platform**: all timings are from one Windows desktop (not isolated, boost not controlled). Treat
   ratios between steps as the result, not absolute ops/s. Linux timings have not been measured; Linux
   is covered by CI for correctness and sanitizers only.
@@ -128,17 +113,13 @@ Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONC
   replicated in both. The hand-checked golden log and the unit tests are the independent check.
 - **Fuzz coverage**: prices are confined to a narrow band and quantities to small values; extreme
   values are covered by a unit test only. No coverage measurement.
-- **Nightly fuzz workflow** has never run (it only runs from the default branch).
+- **Nightly fuzz workflow** runs only from the default branch and has not run yet.
 - **Self-trade prevention**: none (the book has no participant identity).
 - **TSan** is Linux CI only (unavailable with MSVC); a negative control shows it can fail. The book
   itself is single-threaded and not thread-safe.
 - **Visualizer**: checked in one real browser (Edge headless, dark theme, desktop width, plus a manual
-  look in another browser pane by the project owner's assistant) and by Node mock-canvas tests;
+  look in a second browser) and by Node mock-canvas tests;
   Firefox/Safari, the light theme, narrow screens and touch are untested. The book animates at
   snapshot granularity, not per op.
 - **Pages workflow** is manual-only and has never run; Pages is not enabled.
 - **Local builds** are MSVC only; gcc and clang are covered by CI.
-
-## Next
-Open: merge the stacked PRs in order and tag `v0.1.0` (see `docs/RELEASE.md`), after the owner decides
-on a license and on enabling Pages.
