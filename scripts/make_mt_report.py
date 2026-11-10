@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/CONCURRENCY.md and the `mt` generated blocks in README.md / PROGRESS.md /
+"""Generate docs/CONCURRENCY.md and the `mt` generated blocks in README.md / docs/RESULTS.md /
 docs/DESIGN.md from bench/results/stage4/*.json. No number is typed by hand.
 
 Queue descriptions and verdict wording that does not depend on numbers live in KINDS below;
@@ -142,7 +142,7 @@ def env_block(d):
 
 
 def short_verdicts(d):
-    """One line per workload for README/PROGRESS/DESIGN; the full analysis lives in docs/CONCURRENCY.md."""
+    """One line per workload for README/RESULTS/DESIGN; the full analysis lives in docs/CONCURRENCY.md."""
     lines = []
     for wl in WORKLOADS:
         try:
@@ -202,7 +202,7 @@ def main():
            "Every row's event stream + final book checksum was verified equal to the single-thread run before timing (the benchmark exits non-zero otherwise).\n")
     outputs = {os.path.join(ROOT, "docs", "CONCURRENCY.md"): doc}
     h = headline(d)
-    for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):
+    for path in ("README.md", os.path.join("docs", "RESULTS.md"), os.path.join("docs", "DESIGN.md")):
         new = replace_block(os.path.join(ROOT, path), "mt", h)
         if new is not None:
             outputs[os.path.join(ROOT, path)] = new

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/PERFORMANCE.md and the generated blocks in README.md / PROGRESS.md / docs/DESIGN.md
+"""Generate docs/PERFORMANCE.md and the generated blocks in README.md / docs/RESULTS.md / docs/DESIGN.md
 from bench/results/*.json. No number in those blocks is typed by hand.
 
 Step titles and kept/rejected status come from bench/results/steps.json (text only).
@@ -200,7 +200,7 @@ def main():
     perf += pcore_section(data)
     outputs = {os.path.join(ROOT, "docs", "PERFORMANCE.md"): perf}
     blocks = {"perf": headline(data, steps), "perf-steps": steps_table(data, steps), "fuzz": fuzz_block()}
-    for path in ("README.md", "PROGRESS.md", os.path.join("docs", "DESIGN.md")):
+    for path in ("README.md", os.path.join("docs", "RESULTS.md"), os.path.join("docs", "DESIGN.md")):
         full = os.path.join(ROOT, path)
         text = open(full, newline="").read().replace("\r\n", "\n")
         for name, body in blocks.items():
