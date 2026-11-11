@@ -52,3 +52,22 @@ Do not publish quick-mode numbers. Both can also replay the real Nasdaq data (`-
 typed by hand. Compare ratios between designs on the same machine (SPSC versus mutex queue, final
 engine versus baseline), not absolute numbers across machines: the machines differ in core type,
 clock, timer resolution and isolation.
+
+## Hosted CI runners (GitHub Actions)
+
+`.github/workflows/ci.yml` builds, tests and runs a short differential fuzz on Linux x86-64 (gcc,
+clang), Linux arm64, macOS arm64, macOS x86-64 and Windows (MSVC), and runs ThreadSanitizer on Linux
+x86-64 and arm64. arm64 is weakly ordered, so a clean SPSC and pipeline run there is the strongest
+evidence for the acquire/release orderings.
+
+`.github/workflows/bench-platforms.yml` is a manual workflow (Actions tab, "Run workflow") that runs the
+benchmark suite on each of those runners, one at a time, and uploads `bench-<platform>` artifacts with
+the same layout as the scripts above (`SUMMARY.md` included). **Hosted runners are shared virtual
+machines**: absolute ops/s and p99 and above are not reliable there; quote only ratios between designs
+measured in the same job, and label them as hosted-VM results. For absolute numbers use a dedicated
+machine (the scripts above) or a self-hosted runner.
+
+Self-hosted runner on your own machine: repo Settings > Actions > Runners > New self-hosted runner, follow
+the shown commands, then run the benchmark scripts there (or point a copy of the bench job at the
+runner's labels). Because the repository is public, only attach self-hosted runners with fork pull
+request workflows disabled or approval required.

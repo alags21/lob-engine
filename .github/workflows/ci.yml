@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   pull_request:
 
 jobs:
@@ -67,7 +67,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: macos-14, arch: arm64}
           - {os: macos-15, arch: arm64}
           - {os: macos-15-intel, arch: x86_64}
     steps:
