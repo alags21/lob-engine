@@ -50,7 +50,11 @@
 namespace lob {
 
 /// Destructive-interference size used for padding. 64 bytes on x86-64; Apple M-series use 128.
+#if defined(__APPLE__) && defined(__aarch64__)
+inline constexpr std::size_t kCacheLine = 128;
+#else
 inline constexpr std::size_t kCacheLine = 64;
+#endif
 
 namespace detail {
 

@@ -60,6 +60,24 @@ jobs:
           path: fuzz-out/
           if-no-files-found: ignore
 
+  macos:
+    name: macOS arm64 build and test
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install cmake ninja googletest
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Benchmark smoke run (checks the arm64 clock and spin-wait paths; timings are not used)
+        run: |
+          build/bench/lob_bench --workload balanced --ops 20000 --reps 1 --out /tmp/smoke.json
+          build/bench/lob_mt_bench --queue spsc --workload balanced --ops 30000 --reps 1 --rate 200000 --out /tmp/smoke_mt.json
+
   sanitizers:
     name: ASan + UBSan
     runs-on: ubuntu-24.04

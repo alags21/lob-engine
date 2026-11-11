@@ -37,24 +37,8 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#elif defined(__linux__)
-#include <sched.h>
-#endif
-#if defined(_M_X64) || defined(__x86_64__)
-#define LOB_HAS_TSC 1
-#if defined(_MSC_VER)
-#include <intrin.h>
-#else
-#include <cpuid.h>
-#include <x86intrin.h>
-#endif
-#endif
-
 #include "lob/order_book.hpp"
+#include "platform.hpp"
 #include "workload.hpp"
 
 using namespace lob;
@@ -73,18 +57,6 @@ void operator delete(void* p) noexcept { std::free(p); }
 void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 
 // ------------------------------------------------------------------------------ clock
-static inline std::uint64_t cycles() {
-#ifdef LOB_HAS_TSC
-  _mm_lfence();
-  const std::uint64_t t = __rdtsc();
-  _mm_lfence();
-  return t;
-#else
-  return static_cast<std::uint64_t>(
-      std::chrono::steady_clock::now().time_since_epoch().count());
-#endif
-}
-
 struct ClockInfo {
   std::string name;
   double ticks_per_ns = 1.0;
@@ -94,20 +66,8 @@ struct ClockInfo {
 
 static ClockInfo calibrate() {
   ClockInfo c;
-#ifdef LOB_HAS_TSC
-  c.name = "rdtsc (lfence-serialised), converted with steady_clock calibration";
-  using clk = std::chrono::steady_clock;
-  const auto t0 = clk::now();
-  const std::uint64_t a = cycles();
-  while (clk::now() - t0 < std::chrono::milliseconds(200)) {
-  }
-  const std::uint64_t b = cycles();
-  const double ns = std::chrono::duration<double, std::nano>(clk::now() - t0).count();
-  c.ticks_per_ns = static_cast<double>(b - a) / ns;
-#else
-  c.name = "steady_clock (ns ticks)";
-  c.ticks_per_ns = 1.0;
-#endif
+  c.name = clock_name() + (kClockIsCalibrated ? ", converted with steady_clock calibration" : "");
+  c.ticks_per_ns = ticks_per_ns();
   // Overhead of one timestamp pair, measured as the median of back-to-back reads.
   std::vector<std::uint64_t> d(10000);
   for (auto& x : d) {
@@ -119,43 +79,6 @@ static ClockInfo calibrate() {
   c.overhead_ticks = static_cast<double>(d[d.size() / 2]);
   c.overhead_ns = c.overhead_ticks / c.ticks_per_ns;
   return c;
-}
-
-static std::string cpu_brand() {
-#ifdef LOB_HAS_TSC
-  int r[4] = {0};
-  char buf[49] = {0};
-  for (unsigned i = 0; i < 3; ++i) {
-#if defined(_MSC_VER)
-    __cpuid(r, static_cast<int>(0x80000002u + i));
-#else
-    __cpuid(0x80000002u + i, r[0], r[1], r[2], r[3]);
-#endif
-    std::memcpy(buf + 16 * i, r, 16);
-  }
-  std::string s(buf);
-  const auto p = s.find_first_not_of(' ');
-  return p == std::string::npos ? s : s.substr(p);
-#else
-  return "unknown";
-#endif
-}
-
-static bool pin_thread(int cpu) {
-#if defined(_WIN32)
-  SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-  return cpu >= 0 && SetThreadAffinityMask(GetCurrentThread(), 1ULL << cpu) != 0;
-#elif defined(__linux__)
-  if (cpu < 0) return false;
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  CPU_SET(cpu, &set);
-  return sched_setaffinity(0, sizeof(set), &set) == 0;
-#else
-  (void)cpu;
-  return false;
-#endif
 }
 
 static std::string compiler_id() {

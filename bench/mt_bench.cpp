@@ -42,23 +42,6 @@
 #include <thread>
 #include <vector>
 
-#if defined(_WIN32)
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#elif defined(__linux__)
-#include <sched.h>
-#endif
-#if defined(_M_X64) || defined(__x86_64__)
-#define LOB_HAS_TSC 1
-#if defined(_MSC_VER)
-#include <intrin.h>
-#else
-#include <cpuid.h>
-#include <x86intrin.h>
-#endif
-#endif
-
 #if defined(_MSC_VER)
 #pragma warning(disable : 4324)  // padded due to alignment specifier (intended)
 #endif
@@ -67,44 +50,15 @@
 #include "lob/mutex_queue.hpp"
 #include "lob/order_book.hpp"
 #include "lob/spsc_queue.hpp"
+#include "platform.hpp"
 #include "workload.hpp"
 
 using namespace lob;
 using namespace lob::bench;
 
 // ------------------------------------------------------------------------------ clock
-static inline std::uint64_t cycles() {
-#ifdef LOB_HAS_TSC
-  _mm_lfence();
-  const std::uint64_t t = __rdtsc();
-  _mm_lfence();
-  return t;
-#else
-  return static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
-#endif
-}
-
-static inline void cpu_relax() {
-#ifdef LOB_HAS_TSC
-  _mm_pause();
-#else
-  std::this_thread::yield();
-#endif
-}
-
 static double calibrate_ticks_per_ns(double* overhead_ns) {
-#ifdef LOB_HAS_TSC
-  using clk = std::chrono::steady_clock;
-  const auto t0 = clk::now();
-  const std::uint64_t a = cycles();
-  while (clk::now() - t0 < std::chrono::milliseconds(200)) {
-  }
-  const std::uint64_t b = cycles();
-  const double ns = std::chrono::duration<double, std::nano>(clk::now() - t0).count();
-  const double tpn = static_cast<double>(b - a) / ns;
-#else
-  const double tpn = 1.0;
-#endif
+  const double tpn = ticks_per_ns();
   std::vector<std::uint64_t> d(10000);
   for (auto& x : d) {
     const std::uint64_t s = cycles();
@@ -115,62 +69,13 @@ static double calibrate_ticks_per_ns(double* overhead_ns) {
   return tpn;
 }
 
-static std::string cpu_brand() {
-#ifdef LOB_HAS_TSC
-  int r[4] = {0};
-  char buf[49] = {0};
-  for (unsigned i = 0; i < 3; ++i) {
-#if defined(_MSC_VER)
-    __cpuid(r, static_cast<int>(0x80000002u + i));
-#else
-    __cpuid(0x80000002u + i, r[0], r[1], r[2], r[3]);
-#endif
-    std::memcpy(buf + 16 * i, r, 16);
-  }
-  std::string s(buf);
-  const auto p = s.find_first_not_of(' ');
-  return p == std::string::npos ? s : s.substr(p);
-#else
-  return "unknown";
-#endif
-}
-
-static bool invariant_tsc() {
-#ifdef LOB_HAS_TSC
-  int r[4] = {0};
-#if defined(_MSC_VER)
-  __cpuid(r, 0x80000007);
-#else
-  if (!__get_cpuid(0x80000007u, reinterpret_cast<unsigned*>(&r[0]), reinterpret_cast<unsigned*>(&r[1]),
-                   reinterpret_cast<unsigned*>(&r[2]), reinterpret_cast<unsigned*>(&r[3])))
-    return false;
-#endif
-  return (r[3] >> 8) & 1;  // EDX bit 8: invariant TSC
-#else
-  return false;
-#endif
-}
-
-static bool pin_this_thread(int cpu) {
-#if defined(_WIN32)
-  SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-  return cpu >= 0 && SetThreadAffinityMask(GetCurrentThread(), 1ULL << cpu) != 0;
-#elif defined(__linux__)
-  if (cpu < 0) return false;
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  CPU_SET(cpu, &set);
-  return sched_setaffinity(0, sizeof(set), &set) == 0;
-#else
-  (void)cpu;
-  return false;
-#endif
-}
-
 // Picks two logical CPUs that belong to different physical cores (skipping the first two cores,
 // which tend to take interrupts). Returns a description of what was done.
 static std::string pick_cores(int& a, int& b) {
+#if defined(__APPLE__)
+  a = b = -1;
+  return "macOS has no thread-affinity API: threads are not pinned (QoS user-interactive asks the scheduler for performance cores)";
+#endif
   a = 0;
   b = 1;
   std::vector<int> firsts;  // lowest logical CPU of each physical core
@@ -216,14 +121,14 @@ static TscCheck tsc_ping_pong(int cpu_a, int cpu_b, double tpn) {
   std::atomic<std::uint64_t> seq_a{0}, seq_b{0};
   std::uint64_t ta = 0, tb = 0;
   std::thread th([&] {
-    pin_this_thread(cpu_b);
+    pin_thread(cpu_b);
     for (int i = 1; i <= kRounds; ++i) {
       while (seq_a.load(std::memory_order_acquire) != static_cast<std::uint64_t>(i)) cpu_relax();
       tb = cycles();
       seq_b.store(static_cast<std::uint64_t>(i), std::memory_order_release);
     }
   });
-  pin_this_thread(cpu_a);
+  pin_thread(cpu_a);
   std::int64_t m1 = INT64_MAX, m2 = INT64_MAX;
   for (int i = 1; i <= kRounds; ++i) {
     ta = cycles();
@@ -357,7 +262,7 @@ static PassOut queue_pass(Adapter& ad, const std::vector<Op>& ops, const PassCfg
   std::atomic<bool> go{false};
   std::chrono::steady_clock::time_point t_end;
   std::thread consumer([&] {
-    pin_this_thread(cfg.cpu_b);
+    pin_thread(cfg.cpu_b);
     while (!go.load(std::memory_order_acquire)) cpu_relax();
     typename Adapter::Elem it;
     for (std::size_t i = 0; i < ops.size(); ++i) {
@@ -367,7 +272,7 @@ static PassOut queue_pass(Adapter& ad, const std::vector<Op>& ops, const PassCfg
     }
     t_end = std::chrono::steady_clock::now();
   });
-  pin_this_thread(cfg.cpu_a);
+  pin_thread(cfg.cpu_a);
   const std::uint64_t period = cfg.latency ? period_ticks(cfg) : 0;
   std::uint64_t behind = 0;
   const auto t0 = std::chrono::steady_clock::now();
@@ -396,7 +301,7 @@ static PassOut direct_pass(const std::vector<Op>& ops, const PassCfg& cfg, bool 
   Sink sink;
   OrderBook book = sink.make(hash, cfg.callback);
   std::mutex m;
-  pin_this_thread(cfg.cpu_a);
+  pin_thread(cfg.cpu_a);
   if (cfg.latency) out.lat.assign(ops.size(), 0);
   const std::uint64_t period = cfg.latency ? period_ticks(cfg) : 0;
   std::uint64_t behind = 0;
@@ -562,7 +467,7 @@ int main(int argc, char** argv) {
 
   double overhead_ns = 0;
   const double tpn = calibrate_ticks_per_ns(&overhead_ns);
-  const bool inv = invariant_tsc();
+  const bool inv = counter_is_synchronised();
   const TscCheck tsc = tsc_ping_pong(cpu_a, cpu_b, tpn);
   std::fprintf(stderr, "[%s/%s] cpus %d,%d invariant_tsc=%d tsc_offset=%.1f ns min_one_way=%.1f ns\n", kind.c_str(),
                wl.c_str(), cpu_a, cpu_b, inv ? 1 : 0, tsc.offset_ns, tsc.min_one_way_ns);
@@ -633,7 +538,7 @@ int main(int argc, char** argv) {
     << ",\n    \"os\": " << jstr(os) << ",\n    \"flags\": " << jstr(flags) << ",\n    \"cpu_load_percent_before_run\": " << num(load)
     << ",\n    \"note\": " << jstr(note) << ",\n    \"producer_cpu\": " << cpu_a << ",\n    \"consumer_cpu\": " << cpu_b
     << ",\n    \"pinning\": " << jstr(pin_desc)
-    << ",\n    \"clock\": {\"name\": \"rdtsc (lfence-serialised); producer and consumer timestamps compared across cores\", \"ticks_per_ns\": " << num(tpn)
+    << ",\n    \"clock\": {\"name\": " << jstr(clock_name() + "; producer and consumer timestamps compared across cores") << ", \"ticks_per_ns\": " << num(tpn)
     << ", \"timestamp_pair_overhead_ns\": " << num(overhead_ns) << ", \"invariant_tsc_cpuid\": " << (inv ? "true" : "false")
     << ", \"cross_core_offset_ns_estimate\": " << num(tsc.offset_ns) << ", \"min_one_way_handoff_ns\": " << num(tsc.min_one_way_ns)
     << ", \"ping_pong_rounds\": " << tsc.rounds << "}\n  },\n";
