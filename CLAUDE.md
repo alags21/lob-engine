@@ -2,7 +2,7 @@
 
 C++20 limit order book + matching engine. Correctness-first: reference model, differential fuzzing,
 reproducible benchmarks, SPSC pipeline, static browser visualizer, real Nasdaq ITCH validation.
-Read `README.md`, `docs/DESIGN.md` (decisions, limitations) and `docs/RESULTS.md` (stages, known gaps).
+Start with `docs/OVERVIEW.md`, then `README.md`, `docs/DESIGN.md` (decisions, limitations) and `docs/RESULTS.md` (stages, known gaps).
 
 ## Build and test (Linux)
 ```
