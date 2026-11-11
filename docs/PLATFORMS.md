@@ -16,7 +16,7 @@ Do not publish quick-mode numbers. Both can also replay the real Nasdaq data (`-
 ## macOS, step by step
 
 1. Install the Xcode command line tools (`xcode-select --install`) and Homebrew (<https://brew.sh>).
-2. Clone the repository (it is private, so sign in with `gh auth login` first, or use a token):
+2. Clone the repository:
    ```
    gh repo clone alags21/lob-engine && cd lob-engine
    ```

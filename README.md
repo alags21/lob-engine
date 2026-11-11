@@ -10,6 +10,8 @@ What is measured and what is not is stated next to every number. All tables belo
 saved result files by scripts (`scripts/make_report.py`, `scripts/make_mt_report.py`); none are typed
 by hand. See [Limitations](docs/DESIGN.md#limitations) before quoting any of them.
 
+New here? Start with the one-page [docs/OVERVIEW.md](docs/OVERVIEW.md) (architecture, features, tradeoffs, gaps).
+
 ## Architecture
 
 ```mermaid
@@ -171,6 +173,10 @@ sanitizer jobs, the fuzz runs, a benchmark smoke run (timings from CI are never 
 visualizer job. A nightly longer fuzz workflow exists but only runs once it is on `main`.
 
 ## Project status
+
+Documentation index: [OVERVIEW](docs/OVERVIEW.md), [DESIGN](docs/DESIGN.md), [RESULTS](docs/RESULTS.md),
+[PERFORMANCE](docs/PERFORMANCE.md), [CONCURRENCY](docs/CONCURRENCY.md), [REALDATA](docs/REALDATA.md),
+[EVENT_FORMAT](docs/EVENT_FORMAT.md), [BENCHMARKING](docs/BENCHMARKING.md), [PLATFORMS](docs/PLATFORMS.md).
 
 See [docs/RESULTS.md](docs/RESULTS.md) for what each stage added, the measured results and the known
 gaps, and [docs/DESIGN.md](docs/DESIGN.md) for design tradeoffs and limitations. Released under the

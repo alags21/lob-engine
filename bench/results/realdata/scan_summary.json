@@ -1,5 +1,5 @@
 {
- "input": "C:/Users/adity/Data/itch/07302019.NASDAQ_ITCH50.gz",
+ "input": "data/itch/07302019.NASDAQ_ITCH50.gz",
  "messages": 282229684,
  "malformed": 0,
  "truncated_final_frame": false,
