@@ -1,0 +1,97 @@
+name: Benchmarks (cross-platform)
+
+# Manual only. Runs the benchmark suite on GitHub-hosted runners of each OS/architecture and uploads the
+# results as workflow artifacts (bench-<platform>). Nothing is committed automatically.
+#
+# READ THIS BEFORE QUOTING THE NUMBERS: hosted runners are shared virtual machines, not isolated
+# hardware. Absolute ops/s and tail latency (p99 and up) are NOT reliable here. What is meaningful is
+# the ratio between designs measured in the same job (final engine vs baseline, SPSC vs mutex queue).
+# For publishable absolute numbers use a dedicated or self-hosted machine (docs/PLATFORMS.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      quick:
+        description: "Smoke test: 3 reps, 500k ops (do not publish)"
+        type: boolean
+        default: false
+
+jobs:
+  bench:
+    name: ${{ matrix.id }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1          # one job at a time so runners do not compete with each other
+      matrix:
+        include:
+          - {id: linux-x86_64,  os: ubuntu-24.04,       cpu: 1}
+          - {id: linux-arm64,   os: ubuntu-24.04-arm,   cpu: 1}
+          - {id: macos-arm64,   os: macos-15,           cpu: -1}
+          - {id: macos-x86_64,  os: macos-15-intel,     cpu: -1}
+          - {id: windows-x86_64, os: windows-2022,      cpu: 1}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev zlib1g-dev
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja googletest
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          "$VCPKG_INSTALLATION_ROOT/vcpkg" install gtest benchmark zlib --triplet x64-windows
+          echo "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> "$GITHUB_PATH"
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+
+      - name: Build (Release)
+        shell: bash
+        run: |
+          extra=""
+          if [ "$RUNNER_OS" = "macOS" ]; then extra="-DCMAKE_PREFIX_PATH=$(brew --prefix)"; fi
+          if [ "$RUNNER_OS" = "Windows" ]; then extra="-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows"; fi
+          cmake -S . -B build-rel -G Ninja -DCMAKE_BUILD_TYPE=Release $extra
+          cmake --build build-rel
+
+      - name: Correctness gate (tests + differential fuzz)
+        shell: bash
+        run: |
+          ctest --test-dir build-rel --output-on-failure
+          exe=build-rel/tests/lob_fuzz; [ "$RUNNER_OS" = "Windows" ] && exe=$exe.exe
+          $exe --seed 1 --ops 300000
+
+      - name: Benchmarks
+        shell: bash
+        env:
+          QUICK: ${{ inputs.quick }}
+        run: |
+          out="bench/results/platforms/ci-${{ matrix.id }}"
+          mkdir -p "$out/single" "$out/mt"
+          if [ "$QUICK" = "true" ]; then OPS=500000; REPS=3; MT_OPS=200000; pre="SMOKE TEST ONLY. "; else OPS=2000000; REPS=7; MT_OPS=1000000; pre=""; fi
+          note="${pre}GitHub-hosted shared VM (${{ matrix.os }}), not isolated: absolute numbers and tails are unreliable; use ratios between designs."
+          py=python3; command -v python3 >/dev/null || py=python
+          {
+            echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "git: $(git rev-parse --short HEAD)"
+            echo "runner: ${{ matrix.os }} (${{ matrix.id }}), $RUNNER_OS $RUNNER_ARCH"
+            echo "run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "note: hosted shared VM, not isolated"
+            if [ "$RUNNER_OS" = "Linux" ]; then lscpu | grep -E 'Model name|^CPU\(s\)|Thread|Hypervisor' ; free -g | head -2; fi
+            if [ "$RUNNER_OS" = "macOS" ]; then sysctl -n machdep.cpu.brand_string; sysctl -n hw.ncpu hw.memsize; fi
+          } > "$out/machine.txt"
+          $py scripts/run_bench.py --label final --build build-rel --cpu ${{ matrix.cpu }} --ops $OPS --reps $REPS --outdir "$out/single" --note "$note"
+          $py scripts/run_mt_bench.py --build build-rel --ops $MT_OPS --reps $REPS --outdir "$out/mt" --note "$note"
+          $py scripts/summarize_platform.py "$out"
+          cat "$out/SUMMARY.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.id }}
+          path: bench/results/platforms/ci-${{ matrix.id }}

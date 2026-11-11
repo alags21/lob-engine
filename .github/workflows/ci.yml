@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   pull_request:
 
 jobs:
@@ -61,8 +61,15 @@ jobs:
           if-no-files-found: ignore
 
   macos:
-    name: macOS arm64 build and test
-    runs-on: macos-14
+    name: macOS ${{ matrix.arch }} (${{ matrix.os }}) build and test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-14, arch: arm64}
+          - {os: macos-15, arch: arm64}
+          - {os: macos-15-intel, arch: x86_64}
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -73,10 +80,67 @@ jobs:
         run: cmake --build build
       - name: Test
         run: ctest --test-dir build --output-on-failure
-      - name: Benchmark smoke run (checks the arm64 clock and spin-wait paths; timings are not used)
+      - name: Differential fuzz
+        run: build/tests/lob_fuzz --seed 1 --ops 300000
+      - name: Benchmark smoke run (checks the clock and spin-wait paths; timings are not used)
         run: |
           build/bench/lob_bench --workload balanced --ops 20000 --reps 1 --out /tmp/smoke.json
           build/bench/lob_mt_bench --queue spsc --workload balanced --ops 30000 --reps 1 --rate 200000 --out /tmp/smoke_mt.json
+
+  linux-arm:
+    name: Linux arm64 gcc ${{ matrix.build_type }}
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev zlib1g-dev
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DLOB_WERROR=ON
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Differential fuzz (weakly ordered memory model; checks the pipeline tests too)
+        run: build/tests/lob_fuzz --seed 1 --ops ${{ matrix.build_type == 'Debug' && '100000 --check-every 1' || '500000 --runs 2' }}
+      - name: Multi-threaded pipeline smoke run (checksum gate; timings are not used)
+        if: matrix.build_type == 'Release'
+        run: |
+          for q in single-thread mutex-book mutex-cv-queue spsc spsc-yield spsc-backoff spsc-unpadded; do
+            build/bench/lob_mt_bench --queue $q --workload balanced --ops 30000 --reps 1 --rate 200000 --out /tmp/mt_$q.json
+          done
+
+  windows:
+    name: Windows MSVC Release
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install dependencies (vcpkg)
+        shell: bash
+        run: |
+          "$VCPKG_INSTALLATION_ROOT/vcpkg" install gtest benchmark zlib --triplet x64-windows
+          echo "$VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> "$GITHUB_PATH"
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Differential fuzz
+        run: build/tests/lob_fuzz.exe --seed 1 --ops 300000
+      - name: Benchmark smoke run (timings are not used)
+        shell: bash
+        run: |
+          build/bench/lob_bench.exe --workload balanced --ops 20000 --reps 1 --out smoke.json
+          build/bench/lob_mt_bench.exe --queue spsc --workload balanced --ops 30000 --reps 1 --rate 200000 --out smoke_mt.json
 
   sanitizers:
     name: ASan + UBSan
@@ -106,8 +170,12 @@ jobs:
           if-no-files-found: ignore
 
   tsan:
-    name: ThreadSanitizer
-    runs-on: ubuntu-24.04
+    name: ThreadSanitizer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -116,7 +184,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake libgtest-dev libbenchmark-dev clang
       - name: Work around TSan and high ASLR entropy
-        run: sudo sysctl vm.mmap_rnd_bits=28
+        run: sudo sysctl vm.mmap_rnd_bits=28 || true
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLOB_TSAN=ON -DLOB_WERROR=ON -DCMAKE_CXX_COMPILER=clang++
       - name: Build
