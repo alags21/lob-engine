@@ -71,3 +71,12 @@ Self-hosted runner on your own machine: repo Settings > Actions > Runners > New 
 the shown commands, then run the benchmark scripts there (or point a copy of the bench job at the
 runner's labels). Because the repository is public, only attach self-hosted runners with fork pull
 request workflows disabled or approval required.
+
+## Hosted-runner results
+
+`bench/results/platforms/ci-<platform>/` holds one run of `bench-platforms.yml` on GitHub-hosted shared
+VMs (Linux x86-64 and arm64, macOS arm64 and Intel, Windows), each with a generated `SUMMARY.md` and
+`machine.txt`. These are cross-platform consistency checks, not the headline numbers: the VMs are not
+isolated, macOS threads are not pinned, the Apple VM timer resolves 41.7 ns, and the Linux/Windows runners
+may place the two queue threads on SMT siblings. Only ratios between designs measured in the same run mean
+anything. Every queue variant matched the single-thread checksum on every platform.

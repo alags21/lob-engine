@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "spsc-nocb",
+  "commit": "32edc68",
+  "queue": "spsc",
+  "environment": {
+    "cpu": "Apple M1 (Virtual)",
+    "logical_cores": 3,
+    "os": "macOS-15.8.2-arm64-arm-64bit-Mach-O",
+    "flags": "Release:  -O3 -DNDEBUG",
+    "cpu_load_percent_before_run": 210.8,
+    "note": "GitHub-hosted shared VM (macos-15), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "producer_cpu": -1,
+    "consumer_cpu": -1,
+    "pinning": "macOS has no thread-affinity API: threads are not pinned (QoS user-interactive asks the scheduler for performance cores)",
+    "clock": {"name": "cntvct_el0 (isb-serialised, 24.000 MHz, resolution 41.7 ns); producer and consumer timestamps compared across cores", "ticks_per_ns": 0.024, "timestamp_pair_overhead_ns": 0, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": 0, "min_one_way_handoff_ns": 0, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": false, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "balanced", "seed": 1, "ops": 1000000, "events": 1273165, "trades": 251095},
+  "checksum": "c92d4a005eec83da",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [1.74927e+07, 1.73813e+07, 1.71236e+07, 1.53553e+07, 1.73462e+07, 1.73863e+07, 1.71601e+07], "median": 1.73462e+07, "min": 1.53553e+07, "max": 1.74927e+07, "cv_pct": 4.08786},
+  "latency_ns": {"p50": {"reps": [166.667, 166.667, 166.667, 166.667, 166.667, 166.667, 208.333], "median": 166.667, "min": 166.667, "max": 208.333, "cv_pct": 8.44652}, "p99": {"reps": [1333.33, 30625, 6791.67, 1.82196e+06, 418417, 50125, 3.86367e+06], "median": 50125, "min": 1333.33, "max": 3.86367e+06, "cv_pct": 153.724}, "p99_9": {"reps": [28083.3, 107458, 592417, 3.64392e+06, 2.52075e+06, 474000, 1.89242e+07], "median": 592417, "min": 28083.3, "max": 1.89242e+07, "cv_pct": 168.273}, "max": {"reps": [275667, 529458, 1.1275e+06, 4.27379e+06, 4.36262e+06, 904750, 2.08206e+07], "median": 1.1275e+06, "min": 275667, "max": 2.08206e+07, "cv_pct": 147.524}},
+  "behind_schedule_fraction": {"reps": [0.003061, 0.014041, 0.007939, 0.025179, 0.017968, 0.016998, 0.067712], "median": 0.016998, "min": 0.003061, "max": 0.067712, "cv_pct": 90.9168},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 0, 3, 212172, 6218716, 226185, 15795, 21253, 36782, 48921, 31646, 28778, 28607, 23895, 19255, 20567, 20706, 21449, 15653, 3122, 4376, 2119, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

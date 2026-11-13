@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "single-thread-nocb",
+  "commit": "32edc68",
+  "queue": "single-thread",
+  "environment": {
+    "cpu": "AMD EPYC 9V74 80-Core Processor                ",
+    "logical_cores": 4,
+    "os": "Windows-2022Server-10.0.20348-SP0",
+    "flags": "Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG",
+    "cpu_load_percent_before_run": 0.6,
+    "note": "GitHub-hosted shared VM (windows-2022), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "producer_cpu": 0,
+    "consumer_cpu": 1,
+    "pinning": "could not detect physical cores; used logical CPUs 0 and 1 (may be SMT siblings)",
+    "clock": {"name": "rdtsc (lfence-serialised); producer and consumer timestamps compared across cores", "ticks_per_ns": 2.59613, "timestamp_pair_overhead_ns": 20.0298, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": 5.39265, "min_one_way_handoff_ns": 30.0448, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": false, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "balanced", "seed": 1, "ops": 1000000, "events": 1273165, "trades": 251095},
+  "checksum": "c92d4a005eec83da",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [2.21029e+07, 2.20844e+07, 2.20227e+07, 2.21273e+07, 2.20669e+07, 2.21734e+07, 2.21746e+07], "median": 2.21029e+07, "min": 2.20227e+07, "max": 2.21746e+07, "cv_pct": 0.233343},
+  "latency_ns": {"p50": {"reps": [87.8232, 87.8232, 87.8232, 87.8232, 87.8232, 87.8232, 87.8232], "median": 87.8232, "min": 87.8232, "max": 87.8232, "cv_pct": 0}, "p99": {"reps": [244.21, 248.832, 244.98, 248.062, 247.292, 248.832, 263.469], "median": 248.062, "min": 244.21, "max": 263.469, "cv_pct": 2.40259}, "p99_9": {"reps": [15561.6, 17546.1, 16319.7, 17804.2, 18185.6, 19325.7, 24395.6], "median": 17804.2, "min": 15561.6, "max": 24395.6, "cv_pct": 14.5306}, "max": {"reps": [54222.3, 57787.6, 62117.9, 69938, 72625.9, 201504, 198969], "median": 69938, "min": 54222.3, "max": 201504, "cv_pct": 60.6435}},
+  "behind_schedule_fraction": {"reps": [0.00203, 0.002504, 0.002106, 0.002269, 0.002389, 0.002451, 0.003459], "median": 0.002389, "min": 0.00203, "max": 0.003459, "cv_pct": 17.8758},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 5, 616401, 5744817, 574276, 41074, 2489, 1801, 2076, 3039, 5636, 6736, 1401, 149, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}
