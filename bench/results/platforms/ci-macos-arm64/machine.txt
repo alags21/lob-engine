@@ -1,0 +1,8 @@
+date: 2026-11-13T07:22:42Z
+git: 32edc68
+runner: macos-15 (macos-arm64), macOS ARM64
+run: https://github.com/alags21/lob-engine/actions/runs/43385268879
+note: hosted shared VM, not isolated
+Apple M1 (Virtual)
+3
+7516192768

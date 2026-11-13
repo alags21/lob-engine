@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "mutex-cv-queue",
+  "commit": "32edc68",
+  "queue": "mutex-cv-queue",
+  "environment": {
+    "cpu": "AMD EPYC 7763 64-Core Processor                ",
+    "logical_cores": 4,
+    "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+    "flags": "Release:  -O3 -DNDEBUG",
+    "cpu_load_percent_before_run": 44.8,
+    "note": "GitHub-hosted shared VM (ubuntu-24.04), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "producer_cpu": 0,
+    "consumer_cpu": 1,
+    "pinning": "could not detect physical cores; used logical CPUs 0 and 1 (may be SMT siblings)",
+    "clock": {"name": "rdtsc (lfence-serialised); producer and consumer timestamps compared across cores", "ticks_per_ns": 2.44542, "timestamp_pair_overhead_ns": 20.0375, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": -32.9187, "min_one_way_handoff_ns": 30.0562, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": true, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "passive", "seed": 1, "ops": 1000000, "events": 1135800, "trades": 131996},
+  "checksum": "29363563f17aa684",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [3.97443e+06, 4.18905e+06, 3.97053e+06, 4.24802e+06, 3.96918e+06, 3.96975e+06, 3.97776e+06], "median": 3.97443e+06, "min": 3.96918e+06, "max": 4.24802e+06, "cv_pct": 2.77962},
+  "latency_ns": {"p50": {"reps": [3856.6, 3852.1, 3854.96, 3866.01, 3857.01, 3861.92, 3858.65], "median": 3857.01, "min": 3852.1, "max": 3866.01, "cv_pct": 0.11021}, "p99": {"reps": [14196.3, 14169.8, 14350.5, 15043.6, 14812.2, 14666.2, 14942.6], "median": 14666.2, "min": 14169.8, "max": 15043.6, "cv_pct": 2.27777}, "p99_9": {"reps": [23926, 23583.7, 25461.5, 27487.3, 29310.7, 27542.1, 33872.3], "median": 27487.3, "min": 23583.7, "max": 33872.3, "cv_pct": 12.0569}, "max": {"reps": [144018, 69652.7, 807148, 981024, 1.57661e+06, 1.14411e+06, 1.61593e+06], "median": 981024, "min": 69652.7, "max": 1.61593e+06, "cv_pct": 63.3846}},
+  "behind_schedule_fraction": {"reps": [0.013936, 0.013656, 0.014081, 0.014501, 0.014112, 0.014351, 0.014551], "median": 0.014112, "min": 0.013656, "max": 0.014551, "cv_pct": 2.09645},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 0, 2, 6224, 121366, 153827, 761793, 1029242, 1712655, 2546894, 612305, 51376, 1141, 234, 359, 694, 1237, 651, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

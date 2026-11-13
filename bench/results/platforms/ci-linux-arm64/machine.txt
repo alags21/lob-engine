@@ -1,0 +1,10 @@
+date: 2026-11-13T07:23:06Z
+git: 32edc68
+runner: ubuntu-24.04-arm (linux-arm64), Linux ARM64
+run: https://github.com/alags21/lob-engine/actions/runs/43385268879
+note: hosted shared VM, not isolated
+CPU(s):                                  4
+Model name:                              Neoverse-N2
+Thread(s) per core:                      1
+               total        used        free      shared  buff/cache   available
+Mem:              15           1          12           0           1          13

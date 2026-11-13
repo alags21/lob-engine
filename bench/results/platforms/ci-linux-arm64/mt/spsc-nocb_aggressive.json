@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "spsc-nocb",
+  "commit": "32edc68",
+  "queue": "spsc",
+  "environment": {
+    "cpu": "unknown",
+    "logical_cores": 4,
+    "os": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+    "flags": "Release:  -O3 -DNDEBUG",
+    "cpu_load_percent_before_run": 47.5,
+    "note": "GitHub-hosted shared VM (ubuntu-24.04-arm), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "producer_cpu": 2,
+    "consumer_cpu": 3,
+    "pinning": "detected 4 physical cores; used the first logical CPU of physical cores #2 and #3 (logical 2 and 3)",
+    "clock": {"name": "cntvct_el0 (isb-serialised, 1000.000 MHz, resolution 1.0 ns); producer and consumer timestamps compared across cores", "ticks_per_ns": 1, "timestamp_pair_overhead_ns": 32, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": -8, "min_one_way_handoff_ns": 144, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": false, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "aggressive", "seed": 1, "ops": 1000000, "events": 1537872, "trades": 378713},
+  "checksum": "18a0feeda03d921b",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [2.28465e+07, 2.37761e+07, 2.3715e+07, 2.38892e+07, 2.38847e+07, 2.3693e+07, 2.36794e+07], "median": 2.3715e+07, "min": 2.28465e+07, "max": 2.38892e+07, "cv_pct": 1.41222},
+  "latency_ns": {"p50": {"reps": [264, 264, 264, 264, 264, 264, 264], "median": 264, "min": 264, "max": 264, "cv_pct": 0}, "p99": {"reps": [416, 416, 416, 416, 416, 416, 416], "median": 416, "min": 416, "max": 416, "cv_pct": 0}, "p99_9": {"reps": [2000, 2096, 2048, 2088, 2216, 2136, 2080], "median": 2088, "min": 2000, "max": 2216, "cv_pct": 3.00995}, "max": {"reps": [67640, 60600, 145600, 114056, 173528, 113784, 256944], "median": 114056, "min": 60600, "max": 256944, "cv_pct": 46.987}},
+  "behind_schedule_fraction": {"reps": [8.8e-05, 0.000185, 0.00017, 0.000231, 0.000291, 0.000224, 0.000143], "median": 0.000185, "min": 8.8e-05, "max": 0.000291, "cv_pct": 32.0745},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 0, 0, 0, 1738178, 5237206, 8314, 8666, 4531, 1077, 721, 546, 496, 167, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

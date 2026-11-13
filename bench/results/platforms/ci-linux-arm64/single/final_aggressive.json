@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "label": "final",
+  "commit": "32edc68",
+  "environment": {
+    "cpu": "unknown",
+    "logical_cores": 4,
+    "os": "Linux-7.0.0-1017-azure-aarch64-with-glibc2.39",
+    "compiler": "gcc 13.3.0",
+    "flags": "Release:  -O3 -DNDEBUG",
+    "pinned_cpu": 1,
+    "cpu_load_percent_before_run": 51.2,
+    "note": "GitHub-hosted shared VM (ubuntu-24.04-arm), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "clock": {"name": "cntvct_el0 (isb-serialised, 1000.000 MHz, resolution 1.0 ns)", "ticks_per_ns": 1, "timestamp_pair_overhead_ns": 32}
+  },
+  "method": {"model": "closed loop, single thread; per-op service time, no queueing", "warmup_reps": 1, "measured_reps": 7, "throughput": "wall time of whole loop, no per-op timers", "latency": "per-op TSC timestamps, timer overhead not subtracted"},
+  "workload": {"name": "aggressive", "seed": 1, "ops": 2000000, "submit_pct": 70, "cancel_pct": 20, "modify_pct": 10, "aggressive_pct": 55, "depth_mean": 8, "book_target": 1000, "realised": {"submits": 1247538, "cancels": 552257, "modifies": 200205}, "events": 3075696, "trades": 755882, "final_resting_orders": 383},
+  "checksum": "0b7aca446d0f72d0",
+  "allocations_per_run": 18,
+  "allocations_per_op": 9e-06,
+  "throughput_ops_per_sec": {"reps": [3.27597e+07, 3.27686e+07, 3.28395e+07, 3.28111e+07, 3.28564e+07, 3.27361e+07, 3.28451e+07], "median": 3.28111e+07, "min": 3.27361e+07, "max": 3.28564e+07, "cv_pct": 0.134166},
+  "latency_ns": {
+    "p50": {"reps": [64, 64, 64, 64, 64, 64, 64], "median": 64, "min": 64, "max": 64, "cv_pct": 0},
+    "p99": {"reps": [128, 128, 128, 128, 128, 128, 128], "median": 128, "min": 128, "max": 128, "cv_pct": 0},
+    "p99_9": {"reps": [232, 232, 232, 232, 232, 224, 232], "median": 232, "min": 224, "max": 232, "cv_pct": 1.21262},
+    "max": {"reps": [14304, 87960, 66416, 56192, 66248, 57312, 67896], "median": 66248, "min": 14304, "max": 87960, "cv_pct": 34.9941},
+    "mean": {"reps": [63.1401, 63.2085, 63.2607, 63.2125, 63.265, 63.1956, 63.28], "median": 63.2125, "min": 63.1401, "max": 63.28, "cv_pct": 0.0716996},
+    "by_kind": {"submit": {"p50": {"reps": [64, 64, 64, 64, 64, 64, 64], "median": 64, "min": 64, "max": 64, "cv_pct": 0}, "p99": {"reps": [136, 136, 136, 136, 136, 136, 136], "median": 136, "min": 136, "max": 136, "cv_pct": 0}}, "cancel": {"p50": {"reps": [48, 48, 48, 48, 48, 48, 48], "median": 48, "min": 48, "max": 48, "cv_pct": 0}, "p99": {"reps": [104, 104, 104, 104, 104, 104, 104], "median": 104, "min": 104, "max": 104, "cv_pct": 0}}, "modify": {"p50": {"reps": [48, 48, 48, 48, 48, 48, 48], "median": 48, "min": 48, "max": 48, "cv_pct": 0}, "p99": {"reps": [144, 144, 144, 144, 144, 144, 144], "median": 144, "min": 144, "max": 144, "cv_pct": 0}}}
+  },
+  "latency_histogram_log2_ns": {"note": "bucket b counts ops with 2^(b-1) <= ns < 2^b (bucket 0: <1 ns), all measured reps", "counts": [0, 0, 0, 0, 0, 29, 6420310, 7420597, 150788, 7142, 113, 29, 897, 64, 13, 11, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

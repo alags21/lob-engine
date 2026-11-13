@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "label": "final",
+  "commit": "32edc68",
+  "environment": {
+    "cpu": "AMD EPYC 9V74 80-Core Processor                ",
+    "logical_cores": 4,
+    "os": "Windows-2022Server-10.0.20348-SP0",
+    "compiler": "msvc 194435229",
+    "flags": "Release: /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG",
+    "pinned_cpu": 1,
+    "cpu_load_percent_before_run": 0.8,
+    "note": "GitHub-hosted shared VM (windows-2022), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "clock": {"name": "rdtsc (lfence-serialised), converted with steady_clock calibration", "ticks_per_ns": 2.59613, "timestamp_pair_overhead_ns": 20.0298}
+  },
+  "method": {"model": "closed loop, single thread; per-op service time, no queueing", "warmup_reps": 1, "measured_reps": 7, "throughput": "wall time of whole loop, no per-op timers", "latency": "per-op TSC timestamps, timer overhead not subtracted"},
+  "workload": {"name": "aggressive", "seed": 1, "ops": 2000000, "submit_pct": 70, "cancel_pct": 20, "modify_pct": 10, "aggressive_pct": 55, "depth_mean": 8, "book_target": 1000, "realised": {"submits": 1247538, "cancels": 552257, "modifies": 200205}, "events": 3075696, "trades": 755882, "final_resting_orders": 383},
+  "checksum": "0b7aca446d0f72d0",
+  "allocations_per_run": 26,
+  "allocations_per_op": 1.3e-05,
+  "throughput_ops_per_sec": {"reps": [2.72386e+07, 2.73042e+07, 2.74073e+07, 2.74504e+07, 2.74717e+07, 2.7392e+07, 2.73414e+07], "median": 2.7392e+07, "min": 2.72386e+07, "max": 2.74717e+07, "cv_pct": 0.279829},
+  "latency_ns": {
+    "p50": {"reps": [60.0895, 60.0895, 60.0895, 60.0895, 60.0895, 60.0895, 60.0895], "median": 60.0895, "min": 60.0895, "max": 60.0895, "cv_pct": 2.36495e-14},
+    "p99": {"reps": [140.209, 140.209, 140.209, 140.209, 140.209, 140.209, 150.224], "median": 140.209, "min": 140.209, "max": 150.224, "cv_pct": 2.47423},
+    "p99_9": {"reps": [250.373, 260.388, 250.373, 250.373, 250.373, 250.373, 270.403], "median": 250.373, "min": 250.373, "max": 270.403, "cv_pct": 2.86462},
+    "max": {"reps": [26419.4, 17205.6, 53119.2, 51146.2, 70384.9, 51957.4, 22022.8], "median": 51146.2, "min": 17205.6, "max": 70384.9, "cv_pct": 44.0561},
+    "mean": {"reps": [64.5293, 64.4983, 64.3331, 64.1664, 64.2063, 64.3816, 65.404], "median": 64.3816, "min": 64.1664, "max": 65.404, "cv_pct": 0.602571},
+    "by_kind": {"submit": {"p50": {"reps": [60.0895, 60.0895, 60.0895, 60.0895, 60.0895, 60.0895, 60.0895], "median": 60.0895, "min": 60.0895, "max": 60.0895, "cv_pct": 2.36495e-14}, "p99": {"reps": [150.224, 150.224, 150.224, 150.224, 150.224, 150.224, 160.239], "median": 150.224, "min": 150.224, "max": 160.239, "cv_pct": 2.31084}}, "cancel": {"p50": {"reps": [50.0746, 50.0746, 50.0746, 50.0746, 50.0746, 50.0746, 50.0746], "median": 50.0746, "min": 50.0746, "max": 50.0746, "cv_pct": 1.41897e-14}, "p99": {"reps": [110.164, 110.164, 110.164, 110.164, 110.164, 110.164, 110.164], "median": 110.164, "min": 110.164, "max": 110.164, "cv_pct": 0}}, "modify": {"p50": {"reps": [50.0746, 50.0746, 50.0746, 50.0746, 50.0746, 50.0746, 50.0746], "median": 50.0746, "min": 50.0746, "max": 50.0746, "cv_pct": 1.41897e-14}, "p99": {"reps": [160.239, 160.239, 160.239, 160.239, 160.239, 160.239, 170.254], "median": 160.239, "min": 160.239, "max": 170.254, "cv_pct": 2.16769}}}
+  },
+  "latency_histogram_log2_ns": {"note": "bucket b counts ops with 2^(b-1) <= ns < 2^b (bucket 0: <1 ns), all measured reps", "counts": [0, 0, 0, 0, 0, 2254, 8779067, 4987893, 216730, 13400, 191, 107, 168, 104, 77, 5, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}

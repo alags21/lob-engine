@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "stage": 4,
+  "label": "spsc-unpadded",
+  "commit": "32edc68",
+  "queue": "spsc-unpadded",
+  "environment": {
+    "cpu": "AMD EPYC 7763 64-Core Processor                ",
+    "logical_cores": 4,
+    "os": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+    "flags": "Release:  -O3 -DNDEBUG",
+    "cpu_load_percent_before_run": 46.4,
+    "note": "GitHub-hosted shared VM (ubuntu-24.04), not isolated: absolute numbers and tails are unreliable; use ratios between designs.",
+    "producer_cpu": 0,
+    "consumer_cpu": 1,
+    "pinning": "could not detect physical cores; used logical CPUs 0 and 1 (may be SMT siblings)",
+    "clock": {"name": "rdtsc (lfence-serialised); producer and consumer timestamps compared across cores", "ticks_per_ns": 2.44542, "timestamp_pair_overhead_ns": 20.0374, "invariant_tsc_cpuid": true, "cross_core_offset_ns_estimate": -32.9186, "min_one_way_handoff_ns": 30.0561, "ping_pong_rounds": 20000}
+  },
+  "config": {"capacity": 4096, "event_callback": true, "paced_rate_ops_per_sec": 500000, "warmup_reps": 1, "measured_reps": 7, "throughput_mode": "unpaced producer, queue saturates; ops / (first push to consumer done)", "latency_mode": "paced producer; latency = consumer completion - intended send time (coordinated-omission safe)"},
+  "workload": {"name": "balanced", "seed": 1, "ops": 1000000, "events": 1273165, "trades": 251095},
+  "checksum": "c92d4a005eec83da",
+  "checksum_matches_single_thread": true,
+  "throughput_ops_per_sec": {"reps": [1.23684e+07, 1.27058e+07, 1.27216e+07, 1.25912e+07, 1.26133e+07, 1.26746e+07, 1.27154e+07], "median": 1.26746e+07, "min": 1.23684e+07, "max": 1.27216e+07, "cv_pct": 0.915655},
+  "latency_ns": {"p50": {"reps": [133.31, 130.857, 130.857, 131.266, 130.857, 130.857, 130.857], "median": 130.857, "min": 130.857, "max": 133.31, "cv_pct": 0.644921}, "p99": {"reps": [4660.13, 4656.86, 5106.68, 5247.76, 4881.36, 5136.12, 5273.12], "median": 5106.68, "min": 4656.86, "max": 5273.12, "cv_pct": 4.86332}, "p99_9": {"reps": [13443.5, 13489.7, 14924.2, 15070.2, 14821.6, 14697.3, 14840.4], "median": 14821.6, "min": 13443.5, "max": 15070.2, "cv_pct": 4.44348}, "max": {"reps": [45550.8, 63553.4, 1.26564e+06, 1.46961e+06, 1.18775e+06, 1.18527e+06, 1.25593e+06], "median": 1.18775e+06, "min": 45550.8, "max": 1.46961e+06, "cv_pct": 60.2695}},
+  "behind_schedule_fraction": {"reps": [0.009212, 0.009252, 0.009174, 0.009147, 0.00915, 0.009122, 0.009347], "median": 0.009174, "min": 0.009122, "max": 0.009347, "cv_pct": 0.785098},
+  "latency_histogram_log2_ns": {"counts": [0, 0, 0, 0, 0, 2, 18441, 3210310, 3431508, 102512, 41390, 96384, 22192, 32404, 40224, 1156, 286, 174, 341, 688, 1378, 610, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+}
