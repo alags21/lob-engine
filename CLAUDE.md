@@ -14,7 +14,7 @@ node viz/test/viz_test.js                       # visualizer tests
 ```
 - Debug build (no `NDEBUG`) runs `OrderBook::validate()` after every mutating call.
 - Sanitizers: `-DLOB_SANITIZE=ON` (ASan+UBSan) or `-DLOB_TSAN=ON`, with `-DCMAKE_BUILD_TYPE=Debug`.
-- Deps: cmake, ninja, g++/clang++, libgtest-dev, libbenchmark-dev (installed by the SessionStart hook).
+- Deps: cmake, ninja, g++/clang++ (+ libclang-rt-18-dev for sanitizers), libgtest-dev, libbenchmark-dev, zlib1g-dev (installed by the SessionStart hook).
 
 ## Layout
 - `include/lob/`, `src/` – library (order book, event log, sim, replay IO, ITCH, SPSC/mutex queues)
