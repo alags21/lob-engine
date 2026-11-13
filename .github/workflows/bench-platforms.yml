@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 1          # one job at a time so runners do not compete with each other
+      max-parallel: 5          # each platform is its own VM, so they do not compete with each other
       matrix:
         include:
           - {id: linux-x86_64,  os: ubuntu-24.04,       cpu: 1}
