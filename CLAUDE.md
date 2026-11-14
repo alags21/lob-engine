@@ -26,7 +26,7 @@ node viz/test/viz_test.js                       # visualizer tests
 - The book is single-threaded and deterministic; concurrency stays outside it. Integer ticks/lots only.
 - Any engine change must keep the differential fuzz vs the reference model passing.
 - Tables in README/docs between `<!-- BEGIN GENERATED:... -->` markers are generated; never hand-edit.
-  Regenerate with `python scripts/make_report.py` / `make_mt_report.py` (`--check` to verify).
+  Regenerate with `python scripts/make_report.py` / `make_mt_report.py` / `make_realdata_report.py` / `make_platform_report.py` (`--check` to verify).
 - Never quote benchmark numbers without their method/caveats; Linux timings here are not the recorded ones
   (those are from one Windows desktop). Never commit raw market data (see `.gitignore`);
   `scripts/hooks/pre-commit` runs `scripts/check_repo_size.py --staged`.

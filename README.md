@@ -1,5 +1,10 @@
 # lob-engine
 
+[![CI](https://github.com/alags21/lob-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/alags21/lob-engine/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)
+![Platforms](https://img.shields.io/badge/CI-Linux%20x86%2Farm64%20%7C%20macOS%20arm64%2Fx86%20%7C%20Windows-lightgrey.svg)
+
 A C++20 limit order book and matching engine, built stage by stage with a correctness-first test
 strategy: price-time priority matching (limit, market, IOC, FOK, cancel, modify), a slow reference
 model and seeded differential fuzzing, reproducible benchmarks, a lock-free single-producer pipeline,
@@ -7,10 +12,20 @@ a browser visualizer, and a validation run over one real Nasdaq ITCH trading day
 (the raw data is not included).
 
 What is measured and what is not is stated next to every number. All tables below are generated from
-saved result files by scripts (`scripts/make_report.py`, `scripts/make_mt_report.py`); none are typed
-by hand. See [Limitations](docs/DESIGN.md#limitations) before quoting any of them.
+saved result files by scripts (`scripts/make_report.py`, `scripts/make_mt_report.py`,
+`scripts/make_platform_report.py`, `scripts/make_realdata_report.py`); none are typed by hand. See [Limitations](docs/DESIGN.md#limitations) before quoting any of them.
 
 New here? Start with the one-page [docs/OVERVIEW.md](docs/OVERVIEW.md) (architecture, features, tradeoffs, gaps).
+
+## Highlights
+- **Correct by construction:** a slow reference model, seeded differential fuzzing against it, and invariants
+  checked after every call in Debug builds; sanitizers (ASan, UBSan, TSan) in CI.
+- **Fast without cutting corners:** five measured optimisation steps, each gated by the correctness suite,
+  ending with no allocations on the hot path (tables below).
+- **Honest about tradeoffs:** the lock-free queue wins against a mutex queue and loses to locking the book;
+  that result is reported, not hidden, and holds on every platform tested.
+- **Validated on real data:** one full Nasdaq ITCH 5.0 trading day replayed through the engine.
+- **Portable:** x86-64 and arm64, Linux, macOS and Windows, all built and tested in CI.
 
 ## Architecture
 
@@ -72,7 +87,7 @@ Then open `viz/index.html` in a browser (no server needed).
 
 ## Benchmarks
 
-Single-thread book, closed loop, one Windows desktop (not isolated). Method, environment, variance
+Single-thread book, closed loop, one Windows desktop (not isolated); other platforms are in the cross-platform table below. Method, environment, variance
 and every step: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 <!-- BEGIN GENERATED:perf -->
@@ -120,6 +135,26 @@ Stage 4, producer thread -> queue -> matching thread (medians of repeated runs; 
 
 Tail latency (p99 and above) on this machine is dominated by OS interference; see docs/CONCURRENCY.md.
 <!-- END GENERATED:mt -->
+
+### Cross-platform check
+
+Linux (x86-64 and arm64), macOS (Apple Silicon and Intel) and Windows are built and tested in CI, and the
+same benchmark ran on each as a consistency check. The finding is the same everywhere: the lock-free queue
+beats a mutex+condvar queue but not simply locking the book.
+
+<!-- BEGIN GENERATED:platforms -->
+Same code and harness on GitHub-hosted shared VMs (`.github/workflows/bench-platforms.yml`, one run, medians of 7 repetitions per workload; the ratios compare designs measured in the same job). Absolute ops/s and tail latency are not reliable on shared VMs and macOS threads are not pinned; see [docs/PLATFORMS.md](docs/PLATFORMS.md).
+
+| platform | CPU | single-thread Mops/s (passive/aggressive/balanced) | SPSC vs mutex+condvar queue | SPSC vs mutex-protected book | SPSC vs single-thread ceiling |
+|---|---|---|---|---|---|
+| linux-x86_64 | AMD EPYC 7763 64-Core Processor | 22.7/26.1/20.7 | 3.16x to 3.48x | 0.69x to 0.73x | 0.59x to 0.63x |
+| linux-arm64 | Neoverse-N2 | 26.2/30.5/24.3 | 7.36x to 7.79x | 0.83x to 1.13x | 0.58x to 0.82x |
+| macos-arm64 | Apple M1 (Virtual) | 25.5/28.6/23.4 | 1.90x to 2.00x | 0.82x to 0.87x | 0.67x to 0.74x |
+| macos-x86_64 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 14.1/17.7/14.3 | 1.76x to 3.41x | 0.69x to 0.76x | 0.44x to 0.47x |
+| windows-x86_64 | AMD EPYC 9V74 80-Core Processor | 24.1/26.6/21.5 | 3.37x to 3.64x | 0.78x to 0.80x | 0.67x to 0.69x |
+
+Every one of the 165 queue runs above matched the single-thread event checksum. Ratios are a range over the three workloads.
+<!-- END GENERATED:platforms -->
 
 ## Validation on real Nasdaq data
 

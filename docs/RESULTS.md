@@ -97,8 +97,8 @@ Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONC
 ## Known gaps
 - **Real-data scope**: one trading day, one venue's feed, ITCH 5.0 as of 2019; the FIFO deviations are only partly attributable from public data (see `docs/REALDATA.md`); the raw file is not redistributable and is not in the repository.
 - **Platform**: all timings are from one Windows desktop (not isolated, boost not controlled). Treat
-  ratios between steps as the result, not absolute ops/s. Linux timings have not been measured; Linux
-  is covered by CI for correctness and sanitizers only.
+  ratios between steps as the result, not absolute ops/s. Other platforms were measured once on hosted
+  shared VMs (see `docs/PLATFORMS.md`); no timings from an isolated Linux, macOS arm64 or Intel machine exist.
 - **Core types**: the CPU mixes two Windows efficiency classes. Stage 3 results were pinned to a
   lower-class core and Stage 4 to two higher-class cores. A re-run of the Stage 3 baseline and final
   binaries on a higher-class core is in `docs/PERFORMANCE.md` ("Core-type check"). Core selection in

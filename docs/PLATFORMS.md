@@ -74,6 +74,20 @@ request workflows disabled or approval required.
 
 ## Hosted-runner results
 
+<!-- BEGIN GENERATED:platforms -->
+Same code and harness on GitHub-hosted shared VMs (`.github/workflows/bench-platforms.yml`, one run, medians of 7 repetitions per workload; the ratios compare designs measured in the same job). Absolute ops/s and tail latency are not reliable on shared VMs and macOS threads are not pinned; see [docs/PLATFORMS.md](docs/PLATFORMS.md).
+
+| platform | CPU | single-thread Mops/s (passive/aggressive/balanced) | SPSC vs mutex+condvar queue | SPSC vs mutex-protected book | SPSC vs single-thread ceiling |
+|---|---|---|---|---|---|
+| linux-x86_64 | AMD EPYC 7763 64-Core Processor | 22.7/26.1/20.7 | 3.16x to 3.48x | 0.69x to 0.73x | 0.59x to 0.63x |
+| linux-arm64 | Neoverse-N2 | 26.2/30.5/24.3 | 7.36x to 7.79x | 0.83x to 1.13x | 0.58x to 0.82x |
+| macos-arm64 | Apple M1 (Virtual) | 25.5/28.6/23.4 | 1.90x to 2.00x | 0.82x to 0.87x | 0.67x to 0.74x |
+| macos-x86_64 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 14.1/17.7/14.3 | 1.76x to 3.41x | 0.69x to 0.76x | 0.44x to 0.47x |
+| windows-x86_64 | AMD EPYC 9V74 80-Core Processor | 24.1/26.6/21.5 | 3.37x to 3.64x | 0.78x to 0.80x | 0.67x to 0.69x |
+
+Every one of the 165 queue runs above matched the single-thread event checksum. Ratios are a range over the three workloads.
+<!-- END GENERATED:platforms -->
+
 `bench/results/platforms/ci-<platform>/` holds one run of `bench-platforms.yml` on GitHub-hosted shared
 VMs (Linux x86-64 and arm64, macOS arm64 and Intel, Windows), each with a generated `SUMMARY.md` and
 `machine.txt`. These are cross-platform consistency checks, not the headline numbers: the VMs are not
