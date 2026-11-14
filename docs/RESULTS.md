@@ -113,7 +113,9 @@ Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONC
   replicated in both. The hand-checked golden log and the unit tests are the independent check.
 - **Fuzz coverage**: prices are confined to a narrow band and quantities to small values; extreme
   values are covered by a unit test only. No coverage measurement.
-- **Nightly fuzz workflow** runs only from the default branch and has not run yet.
+- **Nightly fuzz workflow** runs on a schedule from the default branch (longer runs, date-derived seeds). Its
+  first scheduled run, while the repository was private, never started because of an Actions billing limit;
+  later runs started once the repository was public.
 - **Self-trade prevention**: none (the book has no participant identity).
 - **TSan** is Linux CI only (unavailable with MSVC); a negative control shows it can fail. The book
   itself is single-threaded and not thread-safe.
