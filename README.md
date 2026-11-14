@@ -181,6 +181,8 @@ Real-stream replay (pre-decoded, pinned, 7 repetitions): 12,949,905 engine opera
 
 ## Visualizer
 
+Live: <https://alags21.github.io/lob-engine/>
+
 `viz/index.html` is a static page (plain HTML, canvas and JS; no build, no network, works from
 `file://`): animated depth chart, trade tape, mid price and spread, order-flow stats and a latency
 histogram from the saved benchmark results, with play/pause/step/speed/scrub and keyboard control.

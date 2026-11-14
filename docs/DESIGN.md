@@ -187,8 +187,8 @@ been run on the Windows development machine; Windows only runs the plain tests a
   fail. Pixels and layout are checked separately by screenshotting the page in a headless
   Chromium-based browser (`scripts/screenshot_viz.py`, output `docs/img/viz-sample.png`); that was
   done on Windows with Edge only. Not tested: other browsers, touch input, narrow screens.
-- **Pages**: `.github/workflows/pages.yml` can deploy `viz/` to GitHub Pages but is manual-trigger only
-  and Pages is not enabled by this repository; the owner has to enable it in the settings first.
+- **Pages**: `.github/workflows/pages.yml` deploys `viz/` to GitHub Pages (manual trigger only; source set to
+  GitHub Actions in the repository settings). Live at https://alags21.github.io/lob-engine/.
 
 ## Stage 7: validation on real market data
 - A stream decoder for ITCH 5.0 (`include/lob/itch.hpp`) feeds per-symbol books. Mapping, checks and results are in

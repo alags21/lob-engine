@@ -123,5 +123,5 @@ Full tables, environment records and variance: `docs/PERFORMANCE.md`, `docs/CONC
   look in a second browser) and by Node mock-canvas tests;
   Firefox/Safari, the light theme, narrow screens and touch are untested. The book animates at
   snapshot granularity, not per op.
-- **Pages workflow** is manual-only and has never run; Pages is not enabled.
+- **Pages workflow** is manual-only: the visualizer is deployed when someone triggers it, not on every push.
 - **Local builds** are MSVC only; gcc and clang are covered by CI.
