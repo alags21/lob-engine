@@ -284,9 +284,11 @@ multi-threaded run reproducible byte for byte.
 
 Read these before quoting any number from this repository.
 
-- **One machine, Windows timings only.** Every timing comes from a single Windows desktop. Linux is
-  exercised in CI for correctness and sanitizers, but no Linux timing exists, and CI timings are
-  never used because the runners are shared and noisy.
+- **One machine for the headline timings.** The stage-by-stage results come from a single Windows desktop.
+  Other platforms (Linux x86-64/arm64, macOS arm64/Intel, Windows) were run once on GitHub-hosted shared
+  VMs as a cross-platform consistency check (`bench/results/platforms/`, `docs/PLATFORMS.md`); those
+  absolute numbers and tails are unreliable, only ratios between designs in the same run mean anything.
+  CI timings from ordinary PR runs are never used.
 - **Desktop noise.** The machine was not isolated: normal background load, turbo/boost uncontrolled,
   and a CPU with two core classes (Stage 3 was pinned to the lower class; a re-run on the higher
   class is reported). Run-to-run drift was measured and is reported next to the results; ratios

@@ -61,8 +61,8 @@ queue, one matching thread) and is verified to yield an event stream identical t
   (see [DESIGN.md](DESIGN.md#tradeoffs-and-what-was-rejected)).
 
 ## Known gaps (summary)
-Timings come from one non-isolated Windows desktop (ratios, not absolute ops/s, are the result); no
-Linux timings; the reference model and book share an author and spec; fuzz ranges are narrow; real-data
+Headline timings come from one non-isolated Windows desktop (ratios, not absolute ops/s, are the result); other
+platforms were measured only once on shared hosted VMs; the reference model and book share an author and spec; fuzz ranges are narrow; real-data
 validation covers one day of one venue; the visualizer was checked in one browser. Full list:
 [RESULTS.md](RESULTS.md#known-gaps).
 

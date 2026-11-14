@@ -226,6 +226,7 @@ jobs:
           python3 scripts/make_report.py --check
           python3 scripts/make_mt_report.py --check
           python3 scripts/make_realdata_report.py --check
+          python3 scripts/make_platform_report.py --check
       - name: Replay round trip (CSV and JSON lines give the same checksum as the generator)
         run: |
           build/tools/lob_sim --seed 3 --ops 3000 --csv /tmp/r.csv --jsonl /tmp/r.jsonl --json /tmp/r_sim.json | tee /tmp/sim.txt
